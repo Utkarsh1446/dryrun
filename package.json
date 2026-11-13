@@ -1,12 +1,13 @@
 {
   "name": "near-dryrun",
-  "version": "0.1.0",
-  "description": "Pre-judge for one-shot hackathon submissions: checks a repo against the NEAR HACKATHON rules before you submit.",
+  "version": "0.2.0",
+  "description": "DryRun reads a public hackathon directory and checks repositories against the published rules. The name lives in lib/brand.js.",
   "type": "module",
   "license": "MIT",
   "engines": { "node": ">=20" },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "smoke:ai": "node scripts/smoke-ai.js"
   }
 }
