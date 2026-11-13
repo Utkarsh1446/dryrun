@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DryRun — pre-judge your hackathon submission</title>
+<style>
+  :root { --bg:#f6f5f1; --card:#fff; --ink:#16181d; --mute:#5c6370; --line:#dedbd2; --acc:#0b7a5c; --fail:#b3261e; --warn:#8a5a00; --pass:#0b7a5c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111316; --card:#1a1d22; --ink:#eceae4; --mute:#9aa1ad; --line:#2c3138; --acc:#3ecf9f; --fail:#ff8a80; --warn:#f2c14e; --pass:#3ecf9f; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:40px 16px 80px; }
+  h1 { font-size:clamp(28px,5vw,40px); line-height:1.15; margin:0 0 12px; letter-spacing:-.02em; }
+  h2 { font-size:18px; margin:0 0 12px; }
+  .lede { color:var(--mute); margin:0 0 28px; max-width:60ch; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:16px; }
+  label { display:block; font-size:13px; font-weight:600; margin:14px 0 4px; }
+  label small { font-weight:400; color:var(--mute); }
+  input, textarea, select { width:100%; padding:10px 12px; font:inherit; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:8px; }
+  input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline:2px solid var(--acc); outline-offset:2px; }
+  textarea { min-height:72px; resize:vertical; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px) { .row { grid-template-columns:1fr; } }
+  button { margin-top:16px; padding:11px 18px; font:inherit; font-weight:600; color:var(--card); background:var(--ink); border:0; border-radius:8px; cursor:pointer; }
+  button[disabled] { opacity:.5; cursor:progress; }
+  button.alt { background:var(--acc); }
+  details { margin-top:12px; } summary { cursor:pointer; font-weight:600; font-size:14px; }
+  .tracks { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:14px; } .tracks label { display:flex; gap:6px; align-items:center; margin:0; font-weight:400; } .tracks input { width:auto; }
+  .score { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; } .score b { font-size:44px; letter-spacing:-.03em; font-variant-numeric:tabular-nums; }
+  ul.results { list-style:none; margin:16px 0 0; padding:0; } ul.results li { padding:12px 0; border-top:1px solid var(--line); }
+  .tag { display:inline-block; min-width:44px; text-align:center; font:600 11px/1.6 ui-monospace,monospace; text-transform:uppercase; border:1px solid currentColor; border-radius:4px; padding:0 6px; margin-right:8px; }
+  .fail { color:var(--fail); } .warn { color:var(--warn); } .pass { color:var(--pass); }
+  .t { font-weight:600; } .d, .fix { margin:4px 0 0; font-size:14px; color:var(--mute); overflow-wrap:anywhere; } .fix { color:var(--ink); }
+  code, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; overflow-wrap:anywhere; }
+  .pay { background:var(--bg); border:1px dashed var(--line); border-radius:8px; padding:12px; margin-top:12px; }
+  .err { color:var(--fail); margin-top:12px; } .note { font-size:13px; color:var(--mute); }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>You get one shot at submitting. Rehearse it.</h1>
+  <p class="lede">NEAR HACKATHON submissions can't be edited, and Claude Code and Codex screen every repo before a human sees it. DryRun reads your repo the way they will and tells you what breaks — before it counts.</p>
+
+  <form id="form" class="card">
+    <label for="repo">Public GitHub repo</label>
+    <input id="repo" name="repo" type="url" required placeholder="https://github.com/you/project" autocomplete="off">
+    <details>
+      <summary>Also check my submission form and demo post (optional)</summary>
+      <div class="row">
+        <div><label for="projectName">Project name</label><input id="projectName" maxlength="200"></div>
+        <div><label for="nearAddress">NEAR account <small>(prize address)</small></label><input id="nearAddress" placeholder="you.near"></div>
+      </div>
+      <label>Tracks</label><div class="tracks" id="tracks"></div>
+      <label for="idea">Description <small>(20–2000 chars)</small></label><textarea id="idea"></textarea>
+      <label for="demoText">Draft of your X demo post</label><textarea id="demoText"></textarea>
+      <label for="demoUrl">Demo post URL <small>(if already live)</small></label><input id="demoUrl" type="url">
+    </details>
+    <button id="go">Run free check</button>
+    <p class="err" id="err" role="alert" hidden></p>
+  </form>
+
+  <section id="out" class="card" hidden aria-live="polite">
+    <div class="score"><b id="score"></b><div><div class="t" id="verdict"></div><div class="note" id="counts"></div></div></div>
+    <ul class="results" id="results"></ul>
+  </section>
+
+  <section id="deep" class="card" hidden>
+    <h2>Deep review — <span id="price"></span>, pay with any token</h2>
+    <p class="note">A model on NEAR AI Cloud (TEE — your code isn't logged or trained on) checks every claim in your README against the code and predicts where a fresh clone fails. Pay from any chain through NEAR Intents; no wallet connection.</p>
+    <div id="payform">
+      <div class="row">
+        <div><label for="asset">Pay with</label><select id="asset"></select></div>
+        <div><label for="refund">Your address on that chain <small>(for refunds)</small></label><input id="refund" autocomplete="off"></div>
+      </div>
+      <button class="alt" id="quote">Get payment address</button>
+    </div>
+    <div class="pay" id="payinfo" hidden></div>
+    <p class="err" id="perr" role="alert" hidden></p>
+    <div id="review" aria-live="polite"></div>
+  </section>
+
+  <p class="note">Not affiliated with NEAR or the hackathon organizers. Checks follow the public rules at nearhackathon.com/HACKATHON.md; passing here does not guarantee anything about judging. Your repo is cloned, read and deleted — never executed.</p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const api = async (path, body) => {
+  const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+};
+const TRACKS = ['defi','thesis','privacy','business','swarms','security','agents','realworld','games','nfts','memecoins','social','open'];
+for (const t of TRACKS) { const l = el('label'); const c = el('input'); c.type = 'checkbox'; c.value = t; l.append(c, t); $('tracks').append(l); }
+const show = (node, msg) => { node.textContent = msg || ''; node.hidden = !msg; };
+let repo = '', meta = {};
+
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  show($('err')); $('go').disabled = true; $('go').textContent = 'Cloning and checking…';
+  repo = $('repo').value.trim();
+  const submission = { tracks: [...document.querySelectorAll('#tracks input:checked')].map((c) => c.value) };
+  for (const k of ['projectName', 'nearAddress', 'idea', 'demoText', 'demoUrl']) if ($(k).value.trim()) submission[k] = $(k).value.trim();
+  try {
+    const r = await api('/api/check', { repo, submission });
+    $('score').textContent = r.score; $('score').className = r.fails ? 'fail' : r.warns ? 'warn' : 'pass';
+    $('verdict').textContent = r.verdict;
+    $('counts').textContent = `${r.fails} failure(s), ${r.warns} warning(s), ${r.results.length - r.fails - r.warns} passed`;
+    const order = { fail: 0, warn: 1, pass: 2 };
+    $('results').replaceChildren(...r.results.sort((a, b) => order[a.level] - order[b.level]).map((x) => {
+      const li = el('li'); const head = el('div');
+      head.append(el('span', 'tag ' + x.level, x.level), el('span', 't', x.title));
+      li.append(head, el('p', 'd', x.detail)); if (x.fix) li.append(el('p', 'fix', 'Fix: ' + x.fix));
+      return li;
+    }));
+    $('out').hidden = false; $('deep').hidden = false; $('review').replaceChildren(); $('payinfo').hidden = true;
+    $('out').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) { show($('err'), err.message); }
+  $('go').disabled = false; $('go').textContent = 'Run free check';
+});
+
+api('/api/tokens').then((t) => {
+  meta = t; $('price').textContent = '$' + t.priceUsd;
+  $('asset').replaceChildren(...t.tokens.sort((a, b) => (a.symbol + a.blockchain).localeCompare(b.symbol + b.blockchain)).map((x) => { const o = el('option', '', `${x.symbol} on ${x.blockchain}`); o.value = x.assetId; return o; }));
+  const usdc = t.tokens.find((x) => x.symbol === 'USDC' && x.blockchain === 'base'); if (usdc) $('asset').value = usdc.assetId;
+  if (t.freeDeep) { $('payform').querySelector('.row').hidden = true; $('quote').textContent = 'Run deep review (free in this build)'; }
+}).catch(() => {});
+
+async function runDeep(depositAddress) {
+  $('review').replaceChildren(el('p', 'note', 'Reviewing on NEAR AI Cloud… this takes up to two minutes.'));
+  const d = await api('/api/deep', { repo, depositAddress });
+  const r = d.review, box = el('div');
+  box.append(el('p', 't', r.summary || ''), el('p', 'd', 'Fresh-clone prediction: ' + (r.runPrediction || 'n/a')));
+  const ul = el('ul', 'results');
+  for (const c of r.claims || []) {
+    const li = el('li'), head = el('div'), lvl = c.verdict === 'supported' ? 'pass' : c.verdict === 'unsupported' ? 'fail' : 'warn';
+    head.append(el('span', 'tag ' + lvl, c.verdict), el('span', 't', c.claim));
+    li.append(head, el('p', 'd', c.evidence || '')); if (c.fix && lvl !== 'pass') li.append(el('p', 'fix', 'Fix: ' + c.fix));
+    ul.append(li);
+  }
+  box.append(ul);
+  if (r.topFixes?.length) { box.append(el('h2', '', 'Do these first')); const ol = el('ol'); r.topFixes.forEach((f) => ol.append(el('li', '', f))); box.append(ol); }
+  box.append(el('p', 'note mono', `model ${d.model} · chat ${d.chatId}` + (d.signature ? ` · signed by ${d.signature.signingAddress} (${d.signature.kind}) — verify at cloud.near.ai/verify` : ' · no enclave signature returned')));
+  $('review').replaceChildren(box);
+}
+
+$('quote').addEventListener('click', async () => {
+  show($('perr')); $('quote').disabled = true;
+  try {
+    if (meta.freeDeep) return await runDeep();
+    const q = await api('/api/quote', { originAsset: $('asset').value, refundTo: $('refund').value });
+    const label = $('asset').selectedOptions[0].textContent, info = $('payinfo');
+    info.hidden = false;
+    if (q.dry) { info.replaceChildren(el('p', '', `Quote: ${q.amountInFormatted} ${label} (~${q.timeEstimate}s to settle).`), el('p', 'note', 'This instance has no DRYRUN_RECIPIENT set, so the quote is a dry run and no deposit address was issued.')); return; }
+    const st = el('p', 'note', 'Waiting for deposit…');
+    info.replaceChildren(el('p', '', `Send exactly ${q.amountInFormatted} ${label} to:`), el('p', 'mono', q.depositAddress + (q.depositMemo ? `  memo: ${q.depositMemo}` : '')), el('p', 'note', `Valid until ${new Date(q.deadline).toLocaleTimeString()}. Anything that fails is refunded to your address.`), st);
+    const poll = setInterval(async () => {
+      try {
+        const s = await api('/api/status?depositAddress=' + encodeURIComponent(q.depositAddress));
+        st.textContent = 'Status: ' + s.status;
+        if (s.paid) { clearInterval(poll); runDeep(q.depositAddress).catch((e) => show($('perr'), e.message)); }
+        if (['REFUNDED', 'FAILED'].includes(s.status)) clearInterval(poll);
+      } catch { /* 404 until the deposit is seen */ }
+    }, 5000);
+  } catch (err) { show($('perr'), err.message); }
+  finally { $('quote').disabled = false; }
+});
+</script>
+</body>
+</html>

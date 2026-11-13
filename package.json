@@ -1,0 +1,12 @@
+{
+  "name": "near-dryrun",
+  "version": "0.1.0",
+  "description": "Pre-judge for one-shot hackathon submissions: checks a repo against the NEAR HACKATHON rules before you submit.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  }
+}
