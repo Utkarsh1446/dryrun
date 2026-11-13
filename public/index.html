@@ -4,279 +4,385 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__NAME__ — __TAGLINE__</title>
+<meta name="description" content="__TAGLINE__ __DISCLAIMER__">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<header class="nav">
-  <a class="logo" href="#home">__NAME__</a>
-  <nav>
-    <a href="#field" data-go="field">Field</a>
-    <a href="#rank" data-go="rank">Where do I rank</a>
-    <a href="#idea" data-go="idea">Idea check</a>
-    <a href="#organizers" data-go="organizers">Organizers</a>
-    <a href="#check" data-go="check">Free check</a>
-    <a href="#pricing" data-go="pricing">Pricing</a>
-  </nav>
+<header class="nav" id="nav">
+  <div class="nav-in">
+    <a class="logo" href="#home"><i class="mark" aria-hidden="true"></i>__NAME__</a>
+    <nav class="nav-links" aria-label="Main">
+      <a href="#field" data-go="field">Field</a>
+      <a href="#rank" data-go="rank">Where do I rank</a>
+      <a href="#idea" data-go="idea">Idea check</a>
+      <a href="#organizers" data-go="organizers">Organizers</a>
+      <a href="#pricing" data-go="pricing">Pricing</a>
+    </nav>
+    <div class="nav-cta"><a class="btn btn-dark btn-s" href="#check" data-go="check">Free check</a></div>
+  </div>
 </header>
 <main id="main">
   <div data-view="home">
-    <div class="wrap hero">
-      <p class="kicker" id="home-kicker">Live directory</p>
-      <h1>__TAGLINE__</h1>
-      <p class="lede">One-shot hackathons do not let a team edit the submission after it is sent. The first reader is often an automated screen. __NAME__ rehearses that screen, then places the score on a speculative board built from the public directory.</p>
-      <div class="actions">
-        <a class="btn" href="#check">Check a repo</a>
-        <a class="btn ghost" href="#field">See the field</a>
-      </div>
-      <p class="disclaimer">__DISCLAIMER__</p>
-      <div class="stats" id="home-stats">
-        <div class="stat"><b id="stat-entries">…</b><span>Entries in this reading</span></div>
-        <div class="stat"><b id="stat-room">…</b><span>Tracks with room</span></div>
-        <div class="stat"><b id="stat-matched">…</b><span>Repos matched so far</span></div>
-        <div class="stat"><b id="stat-scored">…</b><span>Repos scored so far</span></div>
-      </div>
-      <p class="small" id="home-scan">Reading the directory.</p>
-      <p class="small" id="home-quiet"></p>
-    </div>
-
-    <section>
-      <div class="wrap grid-2">
-        <div>
-          <h2>The rules are public. The field is public. The ranking is not.</h2>
-          <p>On NEAR HACKATHON a submission cannot be edited after it is sent. A change goes through a request queue. The useful moment is before that send.</p>
-          <p>The screen asks whether the repository is public, whether it has a license, whether the README's commands exist, and whether secrets are sitting in the tree. __NAME__ runs that list. It does not execute the project, and it does not rewrite it.</p>
-          <p>The directory publishes a name, the tracks, and a demo post. It does not publish the repository. When a demo post or a GitHub search points at a public repo, the match is shown with a confidence. When it does not, the entry stays unscored.</p>
+    <section class="hero">
+      <div class="hero-wash" aria-hidden="true"></div>
+      <div class="wrap center">
+        <p class="eyebrow"><span class="live" aria-hidden="true"></span><span id="home-kicker">Live directory</span></p>
+        <h1 class="d1"><span>__TAGLINE__</span><span class="grad">Rank it before the judges do.</span></h1>
+        <p class="lead">One-shot hackathons do not let a team edit the submission after it is sent, and the first reader is often an automated screen. __NAME__ rehearses that screen, then places your score on a speculative board built from the public directory.</p>
+        <div class="go">
+          <a class="btn btn-dark btn-l" href="#check">Check a repo, free</a>
+          <a class="btn btn-line btn-l" href="#field">See the field</a>
         </div>
-        <div>
-          <h2>How a reading is made</h2>
-          <div class="steps">
-            <article class="step"><em>01</em><strong>Read the directory.</strong><p class="small">One page after another, with a pause between them. A snapshot is kept when the count changes.</p></article>
-            <article class="step"><em>02</em><strong>Match a repository.</strong><p class="small">A link in the project's own demo post is high confidence. A name search is lower, and it is labeled as a search.</p></article>
-            <article class="step"><em>03</em><strong>Score the rules.</strong><p class="small">Clone, read, delete. The same checks as the free pre-judge. Nothing in the repo is run.</p></article>
-            <article class="step"><em>04</em><strong>Place yourself.</strong><p class="small">Paste a repo. The rank is among the repositories that were actually scored, with the fixes in order.</p></article>
+        <div class="meta"><span>No sign-up</span><span>Repos are read, never executed</span><span>Pay only for a deep review</span></div>
+      </div>
+      <div class="wrap stage">
+        <div class="frame">
+          <div class="win">
+            <div class="winbar"><span class="lights"><i></i><i></i><i></i></span><span class="addr">__NAME__ · live reading</span><span class="sp"></span></div>
+            <div class="win-body">
+              <div class="stats" id="home-stats">
+                <div class="stat"><b id="stat-entries">…</b><span>Entries in this reading</span></div>
+                <div class="stat"><b id="stat-room">…</b><span>Tracks with room</span></div>
+                <div class="stat"><b id="stat-matched">…</b><span>Repos matched so far</span></div>
+                <div class="stat"><b id="stat-scored">…</b><span>Repos scored so far</span></div>
+              </div>
+              <p class="small scanline"><span class="live" aria-hidden="true"></span><span id="home-scan">Reading the directory.</span></p>
+              <p class="small" id="home-quiet"></p>
+            </div>
           </div>
         </div>
+        <p class="disclaimer center">__DISCLAIMER__</p>
       </div>
     </section>
 
-    <section>
-      <div class="wrap">
-        <h2>Four things you can do with it</h2>
-        <div class="tools">
-          <a class="tool" href="#check"><strong>Check</strong><span class="small">A public repo and, if you want, the submission fields and the demo post.</span></a>
-          <a class="tool" href="#field"><strong>Field</strong><span class="small">Track crowding, name clusters, and a speculative board.</span></a>
-          <a class="tool" href="#rank"><strong>Rank</strong><span class="small">Your score against the repos that have been scored so far.</span></a>
-          <a class="tool" href="#idea"><strong>Idea</strong><span class="small">One sentence. See which names sit near it, and which tracks are quieter.</span></a>
+    <section class="built">
+      <div class="wrap center">
+        <p class="cap">Runs on public infrastructure</p>
+        <div class="built-row">
+          <span>NEAR Intents 1Click</span><span>NEAR AI Cloud</span><span>USDC on NEAR</span><span>GitHub public repos</span><span>nearhackathon.com directory</span>
         </div>
       </div>
     </section>
 
-    <section id="pricing">
+    <section class="sec">
       <div class="wrap">
-        <h2>Three ways to use it.</h2>
-        <p class="lede">The builder tools on this page are free. The deep review is a paid read of one repository. A larger organizer deployment is a conversation, not a checkout.</p>
+        <div class="center head">
+          <h2 class="d2"><span>The rules are public. The field is public.</span><span class="grad">The ranking is not.</span></h2>
+          <p class="lead">On NEAR HACKATHON a submission cannot be edited after it is sent. The useful moment is before that send, so __NAME__ reads the rules, the directory, and your repository the way a screen would.</p>
+        </div>
+        <div class="steps">
+          <article class="step"><em>01</em><h3>Read the directory.</h3><p>One page after another, with a pause between them. A snapshot is kept when the count changes.</p></article>
+          <article class="step"><em>02</em><h3>Match a repository.</h3><p>A link in the project's own demo post is high confidence. A name search is lower, and it is labeled as a search.</p></article>
+          <article class="step"><em>03</em><h3>Score the rules.</h3><p>Clone, read, delete. Public repo, license, README commands that resolve, no secrets in the tree. Nothing is run.</p></article>
+          <article class="step"><em>04</em><h3>Place yourself.</h3><p>Paste a repo. The rank is among the repositories actually scored, with the fixes in order.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec sec-t">
+      <div class="wrap">
+        <div class="center head">
+          <h2 class="d2"><span>Five tools, one reading.</span><span class="m">For builders and for the people judging them.</span></h2>
+        </div>
+        <div class="bento">
+          <a class="bx bx-7" href="#check">
+            <div class="bx-v art-1"><div class="mini-card"><div class="mc-row"><b>92</b><span>Rule score</span></div><ul class="ticks"><li>Repository is public</li><li>License file found</li><li>README commands resolve</li></ul></div><span class="ex">Illustration</span></div>
+            <div class="bx-t"><span class="badge">Builders</span><h3><span>Free check.</span><span class="m">Rehearse the screen before you submit.</span></h3><p>A public repo and, if you want, the submission fields and the demo post draft, checked against the published rules.</p></div>
+          </a>
+          <a class="bx bx-5" href="#rank">
+            <div class="bx-v art-2"><div class="mini-card"><div class="mc-row"><b>#—</b><span>Your place</span></div><p class="small">Among repositories scored so far, with a fix list in order.</p></div><span class="ex">Illustration</span></div>
+            <div class="bx-t"><span class="badge">Builders</span><h3><span>Where do I rank.</span><span class="m">Your score against the live board.</span></h3></div>
+          </a>
+          <a class="bx bx-5" href="#idea">
+            <div class="bx-v art-3"><div class="mini-card"><div class="chips"><span class="chip">agents</span><span class="chip">payments</span><span class="chip">wallet</span><span class="chip">intents</span></div></div><span class="ex">Illustration</span></div>
+            <div class="bx-t"><span class="badge">Builders</span><h3><span>Idea check.</span><span class="m">See which names sit near it.</span></h3></div>
+          </a>
+          <a class="bx bx-7" href="#field">
+            <div class="bx-v art-2"><div class="mini-card wide"><div class="mini-bars"><span style="--w:88%">Crowded</span><span style="--w:54%">Busy</span><span style="--w:21%">Room</span></div></div><span class="ex">Illustration</span></div>
+            <div class="bx-t"><span class="badge">Everyone</span><h3><span>The field.</span><span class="m">Track crowding, name clusters, a speculative board.</span></h3><p>Built only from public pages, refreshed about every ten minutes, and labeled as speculation.</p></div>
+          </a>
+          <a class="bx bx-12" href="#organizers">
+            <div class="bx-t"><span class="badge">Organizers and judges</span><h3><span>Bulk triage.</span><span class="m">A queue for a list of repositories.</span></h3><p>Paste public GitHub URLs. Will-not-clone, secrets, missing licenses, unresolved README commands, and out-of-window history come first, then duplicates. Twenty repositories per run in this build.</p><span class="btn btn-dark btn-s">Open the triage queue</span></div>
+            <div class="bx-v art-1"><div class="mini-card wide"><div class="q-row bad-row"><span class="tag bad">fail</span>owner/repo — will not clone</div><div class="q-row"><span class="tag warn">warn</span>owner/other — no license</div><div class="q-row"><span class="tag good">pass</span>owner/third — ready</div></div><span class="ex">Illustration</span></div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec sec-t" id="pricing">
+      <div class="wrap">
+        <div class="center head">
+          <h2 class="d2"><span>Free to check.</span><span class="grad">Pay per repo for depth.</span></h2>
+          <p class="lead">Every builder tool on this page is free. The deep review is a paid read of one repository, settled in USDC on NEAR through NEAR Intents.</p>
+        </div>
         <div class="plans">
           <article class="plan">
-            <span class="badge">Builders</span>
-            <h3>Free</h3>
-            <div class="amt">$0</div>
-            <p class="small">The rule check, the live directory, the board, rank, and the idea check.</p>
+            <h3>Builders</h3>
+            <div class="price"><b>$0</b><span>forever</span></div>
+            <div class="billed">No account, no wallet</div>
+            <a class="btn btn-line btn-w" href="#check">Check a repo</a>
             <ul>
               <li>Deterministic rule check on a public repo</li>
+              <li>Submission form and demo post checks</li>
               <li>Track crowding and name clusters</li>
               <li>Speculative leaderboard</li>
               <li>Estimated rank and a fix list</li>
+              <li>Idea check against the live directory</li>
             </ul>
-            <a class="btn" href="#check">Check a repo</a>
           </article>
-          <article class="plan featured">
-            <span class="badge">Pay per repo</span>
-            <h3>Deep review</h3>
-            <div class="amt"><span id="price-deep">…</span></div>
-            <p class="small">A model on NEAR AI Cloud reads the README against the code. You pay from any supported token through NEAR Intents.</p>
+          <article class="plan best">
+            <h3>Deep review <span class="badge">Most useful</span></h3>
+            <div class="price"><b id="price-deep">…</b><span>per repository</span></div>
+            <div class="billed">Paid from any supported token via NEAR Intents</div>
+            <a class="btn btn-dark btn-w" href="#check">Run a deep review</a>
+            <p class="fine">Counted only when the payment settles in USDC on NEAR.</p>
             <ul>
+              <li class="lead-in">Everything in Builders, plus:</li>
+              <li>A model on NEAR AI Cloud reads the README against the code</li>
               <li>Claims in the README checked against the tree</li>
               <li>A prediction of where a fresh clone fails</li>
-              <li>One payment, one repository</li>
-              <li>Counted only when the payment settles in USDC on NEAR</li>
+              <li>One payment, one repository, no wallet connection</li>
             </ul>
-            <a class="btn light" href="#check">Run a deep review</a>
           </article>
           <article class="plan" id="contact">
-            <span class="badge">Organizers</span>
-            <h3>Contact</h3>
-            <div class="amt">Talk</div>
-            <p class="small">The triage queue below is in this build, capped so it can be tried. A larger run is arranged with the maintainer of this repository. There is no sales inbox here.</p>
+            <h3>Organizers</h3>
+            <div class="price"><b>$0</b><span>in this build</span></div>
+            <div class="billed">Up to 20 repositories per run</div>
+            <a class="btn btn-line btn-w" href="#organizers">Open the triage queue</a>
             <ul>
-              <li>Paste or CSV of repository URLs</li>
+              <li>Paste a list of repository URLs</li>
               <li>Rule failures in a triage order</li>
               <li>Duplicate URLs flagged</li>
-              <li>Another hackathon means another rulebook and directory adapter</li>
+              <li class="soon"><span>Larger runs and other hackathons <em>Coming soon</em></span></li>
+              <li class="soon"><span>Rulebook and directory adapters per event <em>Coming soon</em></span></li>
             </ul>
-            <a class="btn ghost" href="#organizers">Open the triage queue</a>
           </article>
         </div>
-        <p class="small" id="pay-note"></p>
+        <p class="cap center pay-note" id="pay-note"></p>
       </div>
     </section>
 
-    <section class="faq">
+    <section class="sec sec-t">
+      <div class="wrap faq">
+        <div class="faq-side">
+          <h2 class="d2"><span>Questions,</span><span class="m">answered plainly.</span></h2>
+          <p class="copy">Anything else is in the public repository. There is no sales inbox in this build.</p>
+        </div>
+        <div class="qas">
+          <details class="qa">
+            <summary>Is the leaderboard the official result?<i class="pm" aria-hidden="true"></i></summary>
+            <p>No. It is a reading of the published rules against the public repositories this process could match and score. Judges decide. The order will move as more repositories are scored.</p>
+          </details>
+          <details class="qa">
+            <summary>Do you run the code in a repository?<i class="pm" aria-hidden="true"></i></summary>
+            <p>No. A repository is cloned, read, and deleted. "Commands resolve" means the scripts and files named in the README exist. It does not mean they succeed. Symlinks are skipped. Secret values are not printed.</p>
+          </details>
+          <details class="qa">
+            <summary>What does a match mean?<i class="pm" aria-hidden="true"></i></summary>
+            <p>High confidence means the first GitHub link in that project's public demo post. That link can still be a dependency rather than the submission. Medium confidence means a GitHub name search cleared a conservative threshold, and it can be the wrong repository. Entries with no match are left unscored.</p>
+          </details>
+          <details class="qa">
+            <summary>What if my repository is still private?<i class="pm" aria-hidden="true"></i></summary>
+            <p>It cannot be scored, and the screeners cannot open it either. Make it public, then paste the link.</p>
+          </details>
+          <details class="qa">
+            <summary>What does the deep review cost, and what if there is no API key?<i class="pm" aria-hidden="true"></i></summary>
+            <p>The price on this page comes from the server configuration. Without NEAR_AI_API_KEY the free checks, the board, rank, and the idea check still run. The model is not called. A gateway signature, when the API returns one, is shown with the kind the API sends. It is not described as an enclave attestation.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
       <div class="wrap">
-        <h2>Questions</h2>
-        <details>
-          <summary>Is the leaderboard the official result?</summary>
-          <p>No. It is a reading of the published rules against the public repositories this process could match and score. Judges decide. The order will move as more repositories are scored.</p>
-        </details>
-        <details>
-          <summary>Do you run the code in a repository?</summary>
-          <p>No. A repository is cloned, read, and deleted. "Commands resolve" means the scripts and files named in the README exist. It does not mean they succeed. Symlinks are skipped. Secret values are not printed.</p>
-        </details>
-        <details>
-          <summary>What does a match mean?</summary>
-          <p>High confidence means the first GitHub link in that project's public demo post. That link can still be a dependency rather than the submission. Medium confidence means a GitHub name search cleared a conservative threshold, and it can be the wrong repository. Entries with no match are left unscored.</p>
-        </details>
-        <details>
-          <summary>What if my repository is still private?</summary>
-          <p>It cannot be scored, and the screeners cannot open it either. Make it public, then paste the link.</p>
-        </details>
-        <details>
-          <summary>What does the deep review cost, and what if there is no API key?</summary>
-          <p>The price on this page comes from the server configuration. Without NEAR_AI_API_KEY the free checks, the board, rank, and the idea check still run. The model is not called. A gateway signature, when the API returns one, is shown with the kind the API sends. It is not described as an enclave attestation.</p>
-        </details>
+        <div class="cta-frame">
+          <h2 class="d2"><span>Submit once.</span><span class="soft">Rehearse first.</span></h2>
+          <p class="lead">Paste a public repository and see what the screen sees, in under a minute.</p>
+          <div class="go"><a class="btn btn-light btn-l" href="#check">Run the free check</a><a class="btn btn-glass btn-l" href="#rank">Where do I rank</a></div>
+        </div>
       </div>
     </section>
-    <footer><div class="wrap">__NAME__. Not affiliated with NEAR or the hackathon organizers. Payments use NEAR Intents 1Click. The optional model read uses NEAR AI Cloud. MIT license. The name and tagline live in one config object so they can be changed together.</div></footer>
   </div>
-
   <div data-view="field" hidden>
-    <div class="wrap hero">
-      <p class="kicker">Speculative board</p>
-      <h1>The field, as far as public pages go.</h1>
-      <p class="banner" id="field-banner">__DISCLAIMER__ The order is the deterministic rule score. A model score, when a key is configured, is shown beside a row and does not move it.</p>
-      <p class="small" id="field-scan"></p>
-      <p class="small" id="field-coverage"></p>
-      <div id="field-growth"></div>
-      <h2>Tracks</h2>
-      <p class="small">Share is of entries that list the track. A project can list several. Room means under 12% of the directory. Crowded means 25% or more.</p>
-      <div class="table-wrap" id="field-tracks"></div>
-      <h2>Name clusters</h2>
-      <p class="small">A cluster is a distinctive word shared by at least three names, and not so common that it describes the whole directory. Same-name groups ignore spaces and camel case.</p>
-      <div id="field-clusters"></div>
-      <h2>Leaderboard</h2>
-      <div class="toolbar">
-        <div><label for="field-track">Track</label><select id="field-track"><option value="">All scored</option></select></div>
-        <div style="flex:1"><label for="field-q">Search</label><input id="field-q" placeholder="Project or repository"></div>
+    <div class="view">
+      <div class="hero-wash" aria-hidden="true"></div>
+      <div class="wrap">
+        <div class="vhead">
+          <p class="eyebrow"><span class="live" aria-hidden="true"></span>Speculative board</p>
+          <h1 class="d1"><span>The field,</span><span class="grad">as far as public pages go.</span></h1>
+          <p class="banner" id="field-banner">__DISCLAIMER__ The order is the deterministic rule score. A model score, when a key is configured, is shown beside a row and does not move it.</p>
+          <p class="small" id="field-scan"></p>
+          <p class="small" id="field-coverage"></p>
+        </div>
+        <div class="panel" id="field-growth"></div>
+        <div class="panel">
+          <h2>Tracks</h2>
+          <p class="small">Share is of entries that list the track. A project can list several. Room means under 12% of the directory. Crowded means 25% or more.</p>
+          <div class="table-wrap" id="field-tracks"></div>
+        </div>
+        <div class="panel">
+          <h2>Name clusters</h2>
+          <p class="small">A cluster is a distinctive word shared by at least three names, and not so common that it describes the whole directory. Same-name groups ignore spaces and camel case.</p>
+          <div id="field-clusters"></div>
+        </div>
+        <div class="panel">
+          <h2>Leaderboard</h2>
+          <div class="toolbar">
+            <div><label for="field-track">Track</label><select id="field-track"><option value="">All scored</option></select></div>
+            <div class="grow"><label for="field-q">Search</label><input id="field-q" placeholder="Project or repository"></div>
+          </div>
+          <p class="small" id="field-count"></p>
+          <div class="table-wrap">
+            <table>
+              <caption class="small">Speculative ranks among scored repositories only. Tied scores share a rank.</caption>
+              <thead><tr><th>Rank</th><th>Project</th><th>Tracks</th><th>Score</th><th>Fails</th><th>Match</th><th>Repository</th></tr></thead>
+              <tbody id="field-body"></tbody>
+            </table>
+          </div>
+          <p class="more"><button class="btn btn-line btn-s" id="field-more" type="button" hidden>Show more</button></p>
+        </div>
       </div>
-      <p class="small" id="field-count"></p>
-      <div class="table-wrap">
-        <table>
-          <caption class="small" style="caption-side:bottom;padding:8px 12px;text-align:left">Speculative ranks among scored repositories only. Tied scores share a rank.</caption>
-          <thead><tr><th>Rank</th><th>Project</th><th>Tracks</th><th>Score</th><th>Fails</th><th>Match</th><th>Repository</th></tr></thead>
-          <tbody id="field-body"></tbody>
-        </table>
-      </div>
-      <p><button class="btn ghost" id="field-more" type="button" hidden>Show more</button></p>
     </div>
   </div>
 
   <div data-view="rank" hidden>
-    <div class="wrap hero">
-      <p class="kicker">Where do I rank</p>
-      <h1>Your score, against the board that exists right now.</h1>
-      <p class="banner">__DISCLAIMER__ The rank counts only repositories that have been matched and scored. It is not a rank of every entry in the directory.</p>
-      <form id="rank-form" class="card">
-        <label for="rank-repo">Public GitHub repository</label>
-        <input id="rank-repo" type="url" required placeholder="https://github.com/you/project" autocomplete="off">
-        <label>Tracks <small>(optional)</small></label>
-        <div class="tracks" id="rank-tracks"></div>
-        <button class="btn" id="rank-go" type="submit">Score and place me</button>
-        <p class="err" id="rank-err" role="alert" hidden></p>
-      </form>
-      <div id="rank-out" aria-live="polite"></div>
+    <div class="view">
+      <div class="hero-wash" aria-hidden="true"></div>
+      <div class="wrap wrap-n">
+        <div class="vhead">
+          <p class="eyebrow">Where do I rank</p>
+          <h1 class="d1"><span>Your score,</span><span class="grad">against the board right now.</span></h1>
+          <p class="banner">__DISCLAIMER__ The rank counts only repositories that have been matched and scored. It is not a rank of every entry in the directory.</p>
+        </div>
+        <form id="rank-form" class="card form">
+          <label for="rank-repo">Public GitHub repository</label>
+          <input id="rank-repo" type="url" required placeholder="https://github.com/you/project" autocomplete="off">
+          <label>Tracks <small>(optional)</small></label>
+          <div class="tracks" id="rank-tracks"></div>
+          <button class="btn btn-dark btn-w" id="rank-go" type="submit">Score and place me</button>
+          <p class="err" id="rank-err" role="alert" hidden></p>
+        </form>
+        <div id="rank-out" class="out" aria-live="polite"></div>
+      </div>
     </div>
   </div>
 
   <div data-view="idea" hidden>
-    <div class="wrap hero">
-      <p class="kicker">Idea check</p>
-      <h1>Say it in a sentence. See who is already there.</h1>
-      <p class="lede">This is keyword overlap with project names in the live directory. It is not a novelty judgement, and it cannot see repositories the directory does not name.</p>
-      <form id="idea-form" class="card">
-        <label for="idea-text">The idea</label>
-        <textarea id="idea-text" required maxlength="2000" placeholder="A spending limit for AI agents that pay invoices on NEAR"></textarea>
-        <button class="btn" id="idea-go" type="submit">Check the field</button>
-        <p class="err" id="idea-err" role="alert" hidden></p>
-      </form>
-      <div id="idea-out" aria-live="polite"></div>
+    <div class="view">
+      <div class="hero-wash" aria-hidden="true"></div>
+      <div class="wrap wrap-n">
+        <div class="vhead">
+          <p class="eyebrow">Idea check</p>
+          <h1 class="d1"><span>Say it in a sentence.</span><span class="grad">See who is already there.</span></h1>
+          <p class="lead">This is keyword overlap with project names in the live directory. It is not a novelty judgement, and it cannot see repositories the directory does not name.</p>
+        </div>
+        <form id="idea-form" class="card form">
+          <label for="idea-text">The idea</label>
+          <textarea id="idea-text" required maxlength="2000" placeholder="A spending limit for AI agents that pay invoices on NEAR"></textarea>
+          <button class="btn btn-dark btn-w" id="idea-go" type="submit">Check the field</button>
+          <p class="err" id="idea-err" role="alert" hidden></p>
+        </form>
+        <div id="idea-out" class="out" aria-live="polite"></div>
+      </div>
     </div>
   </div>
 
   <div data-view="organizers" hidden>
-    <div class="wrap hero">
-      <p class="kicker">Organizers and judges</p>
-      <h1>A triage queue for a list of repositories.</h1>
-      <p class="lede">Paste public GitHub URLs. Each one is cloned, read, and deleted. The queue puts "will not clone", secrets, a missing license, README commands that do not resolve, and out-of-window history first, then duplicates. Twenty repositories per run in this build.</p>
-      <p class="banner">__DISCLAIMER__ This is the same rule list as the free check. It is not a judging decision.</p>
-      <form id="org-form" class="card">
-        <label for="org-text">Repository URLs</label>
-        <textarea id="org-text" required placeholder="https://github.com/owner/repo"></textarea>
-        <button class="btn" id="org-go" type="submit">Build the queue</button>
-        <p class="err" id="org-err" role="alert" hidden></p>
-      </form>
-      <div id="org-out" aria-live="polite"></div>
-      <p class="small">A larger organizer deployment is not a checkout. Talk to the maintainer of this repository. There is no sales inbox in this build.</p>
+    <div class="view">
+      <div class="hero-wash" aria-hidden="true"></div>
+      <div class="wrap wrap-n">
+        <div class="vhead">
+          <p class="eyebrow">Organizers and judges</p>
+          <h1 class="d1"><span>A triage queue</span><span class="grad">for a list of repositories.</span></h1>
+          <p class="lead">Paste public GitHub URLs. Each one is cloned, read, and deleted. The queue puts "will not clone", secrets, a missing license, README commands that do not resolve, and out-of-window history first, then duplicates. Twenty repositories per run in this build.</p>
+          <p class="banner">__DISCLAIMER__ This is the same rule list as the free check. It is not a judging decision.</p>
+        </div>
+        <form id="org-form" class="card form">
+          <label for="org-text">Repository URLs</label>
+          <textarea id="org-text" required placeholder="https://github.com/owner/repo"></textarea>
+          <button class="btn btn-dark btn-w" id="org-go" type="submit">Build the queue</button>
+          <p class="err" id="org-err" role="alert" hidden></p>
+        </form>
+        <div id="org-out" class="out" aria-live="polite"></div>
+        <p class="small center">Larger organizer runs are coming soon. Talk to the maintainer of this repository. There is no sales inbox in this build.</p>
+      </div>
     </div>
   </div>
 
   <div data-view="check" hidden>
-    <div class="wrap hero">
-      <p class="kicker">Free check</p>
-      <h1>Rehearse the submission.</h1>
-      <p class="lede">Paste a public repository. __NAME__ reads it the way the automated screen will, and stops before anything is executed.</p>
-      <form id="form" class="card">
-        <label for="repo">Public GitHub repo</label>
-        <input id="repo" name="repo" type="url" required placeholder="https://github.com/you/project" autocomplete="off">
-        <details>
-          <summary>Also check my submission form and demo post</summary>
-          <div class="split">
-            <div><label for="projectName">Project name</label><input id="projectName" maxlength="200"></div>
-            <div><label for="nearAddress">NEAR account <small>(prize address)</small></label><input id="nearAddress" placeholder="you.near"></div>
-          </div>
-          <label>Tracks</label>
-          <div class="tracks" id="tracks"></div>
-          <label for="idea">Description <small>(20–2000 chars)</small></label>
-          <textarea id="idea"></textarea>
-          <label for="demoText">Draft of your X demo post</label>
-          <textarea id="demoText"></textarea>
-          <label for="demoUrl">Demo post URL <small>(if already live)</small></label>
-          <input id="demoUrl" type="url">
-        </details>
-        <button class="btn" id="go" type="submit">Run free check</button>
-        <p class="err" id="err" role="alert" hidden></p>
-      </form>
-      <section id="out" class="card" hidden aria-live="polite">
-        <div class="scoreline"><b id="score"></b><div><div id="verdict"></div><div class="small" id="counts"></div></div></div>
-        <ul class="results" id="results"></ul>
-      </section>
-      <section id="deep" class="card" hidden>
-        <h2>Deep review — <span id="price"></span>, pay with any token</h2>
-        <p class="small">A model on NEAR AI Cloud reads the README, the file tree, and the source, and checks claims against the code. The repository text is fenced as untrusted. Pay from any chain through NEAR Intents. No wallet connection.</p>
-        <div id="payform">
-          <div class="split">
-            <div><label for="asset">Pay with</label><select id="asset"></select></div>
-            <div><label for="refund">Your address on that chain <small>(for refunds)</small></label><input id="refund" autocomplete="off"></div>
-          </div>
-          <button class="btn" id="quote" type="button">Get payment address</button>
+    <div class="view">
+      <div class="hero-wash" aria-hidden="true"></div>
+      <div class="wrap wrap-n">
+        <div class="vhead">
+          <p class="eyebrow">Free check</p>
+          <h1 class="d1"><span>Rehearse</span><span class="grad">the submission.</span></h1>
+          <p class="lead">Paste a public repository. __NAME__ reads it the way the automated screen will, and stops before anything is executed.</p>
         </div>
-        <div class="pay" id="payinfo" hidden></div>
-        <p class="err" id="perr" role="alert" hidden></p>
-        <div id="review" aria-live="polite"></div>
-      </section>
-      <p class="small">Passing here does not guarantee anything about judging. Your repo is cloned, read, and deleted — never executed.</p>
+        <form id="form" class="card form">
+          <label for="repo">Public GitHub repo</label>
+          <input id="repo" name="repo" type="url" required placeholder="https://github.com/you/project" autocomplete="off">
+          <details class="more-fields">
+            <summary>Also check my submission form and demo post</summary>
+            <div class="split">
+              <div><label for="projectName">Project name</label><input id="projectName" maxlength="200"></div>
+              <div><label for="nearAddress">NEAR account <small>(prize address)</small></label><input id="nearAddress" placeholder="you.near"></div>
+            </div>
+            <label>Tracks</label>
+            <div class="tracks" id="tracks"></div>
+            <label for="idea">Description <small>(20–2000 chars)</small></label>
+            <textarea id="idea"></textarea>
+            <label for="demoText">Draft of your X demo post</label>
+            <textarea id="demoText"></textarea>
+            <label for="demoUrl">Demo post URL <small>(if already live)</small></label>
+            <input id="demoUrl" type="url">
+          </details>
+          <button class="btn btn-dark btn-w" id="go" type="submit">Run free check</button>
+          <p class="err" id="err" role="alert" hidden></p>
+        </form>
+        <section id="out" class="card" hidden aria-live="polite">
+          <div class="scoreline"><b id="score"></b><div><div id="verdict"></div><div class="small" id="counts"></div></div></div>
+          <ul class="results" id="results"></ul>
+        </section>
+        <section id="deep" class="card deep" hidden>
+          <span class="badge">Deep review</span>
+          <h2><span id="price"></span>, pay with any token</h2>
+          <p class="small">A model on NEAR AI Cloud reads the README, the file tree, and the source, and checks claims against the code. The repository text is fenced as untrusted. Pay from any chain through NEAR Intents. No wallet connection.</p>
+          <div id="payform">
+            <div class="split">
+              <div><label for="asset">Pay with</label><select id="asset"></select></div>
+              <div><label for="refund">Your address on that chain <small>(for refunds)</small></label><input id="refund" autocomplete="off"></div>
+            </div>
+            <button class="btn btn-dark" id="quote" type="button">Get payment address</button>
+          </div>
+          <div class="pay" id="payinfo" hidden></div>
+          <p class="err" id="perr" role="alert" hidden></p>
+          <div id="review" aria-live="polite"></div>
+        </section>
+        <p class="small center">Passing here does not guarantee anything about judging. Your repo is cloned, read, and deleted — never executed.</p>
+      </div>
     </div>
   </div>
 </main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-g">
+      <div class="foot-b">
+        <a class="logo" href="#home"><i class="mark" aria-hidden="true"></i>__NAME__</a>
+        <p>__TAGLINE__</p>
+        <p class="cap">__DISCLAIMER__</p>
+      </div>
+      <div><h4>Builders</h4><ul><li><a href="#check">Free check</a></li><li><a href="#rank">Where do I rank</a></li><li><a href="#idea">Idea check</a></li><li><a href="#field">The field</a></li></ul></div>
+      <div><h4>Organizers</h4><ul><li><a href="#organizers">Triage queue</a></li><li><a href="#pricing">Pricing</a></li><li><a href="https://github.com/Utkarsh1446/dryrun" rel="noopener">Source on GitHub</a></li></ul></div>
+      <div><h4>Built on</h4><ul><li><a href="https://docs.near-intents.org/" rel="noopener">NEAR Intents 1Click</a></li><li><a href="https://cloud.near.ai/" rel="noopener">NEAR AI Cloud</a></li><li><a href="https://nearhackathon.com/" rel="noopener">NEAR HACKATHON directory</a></li></ul></div>
+    </div>
+    <div class="foot-x"><span>__NAME__. Not affiliated with NEAR or the hackathon organizers. MIT license.</span><span>Payments use NEAR Intents 1Click. The optional model read uses NEAR AI Cloud.</span></div>
+  </div>
+</footer>
 <script src="/app.js"></script>
 </body>
 </html>

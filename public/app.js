@@ -546,3 +546,9 @@ refreshOverview().then(() => {
   fillTracks($('rank-tracks'), tracks);
 });
 route();
+
+// Nav turns into a floating glass bar once the page scrolls.
+const navEl = document.getElementById('nav');
+const navOn = () => navEl && navEl.classList.toggle('on', window.scrollY > 8);
+window.addEventListener('scroll', navOn, { passive: true });
+navOn();
