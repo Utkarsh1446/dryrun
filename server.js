@@ -7,7 +7,7 @@ import { PRODUCT } from './lib/brand.js';
 import { criteriaScore, ideaAssist } from './lib/ai.js';
 import { checkDirectory, checkRepo, checkSubmission, score } from './lib/checks.js';
 import { ideaOverlap, quietTracks } from './lib/cluster.js';
-import { deepReview } from './lib/deep.js';
+import { deepReview, finishPaidReview } from './lib/deep.js';
 import { overviewFrom } from './lib/field.js';
 import { near } from './lib/hackathons/near.js';
 import { canonRepo } from './lib/match.js';
@@ -24,6 +24,7 @@ const root = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 8787;
 const FREE_DEEP = process.env.DRYRUN_FREE_DEEP === '1';
 const used = new Map();
+const pendingReviews = new Set();
 const jobs = new Map();
 
 const store = createStore(process.env.DRYRUN_DATA || join(root, 'data'));
@@ -242,12 +243,15 @@ const routes = {
     const { repo, depositAddress } = await body(req);
     const url = canonRepo(String(repo || '').trim());
     if (!url) throw Object.assign(new Error('Invalid repo URL'), { status: 400 });
-    if (!FREE_DEEP) {
-      if (!depositAddress || !pay.isPaid(await pay.status(depositAddress))) throw Object.assign(new Error('Payment not settled yet'), { status: 402 });
-      if (used.has(depositAddress) && used.get(depositAddress) !== url) throw Object.assign(new Error('This payment was already used for another repo'), { status: 409 });
-      used.set(depositAddress, url);
-    }
-    return deepReview(await snapshot(url));
+    return finishPaidReview({
+      free: FREE_DEEP,
+      used,
+      pending: pendingReviews,
+      depositAddress,
+      repo: url,
+      paid: async () => pay.isPaid(await pay.status(depositAddress)),
+      run: async () => deepReview(await snapshot(url)),
+    });
   },
 };
 

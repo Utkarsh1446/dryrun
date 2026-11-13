@@ -82,5 +82,5 @@ test('repo URL is validated before it reaches git', () => {
 test('deep review: prompt fences the repo, reply parsing tolerates prose', () => {
   assert.match(buildPrompt({ files: good() }), /^<repo>[\s\S]*README\.md[\s\S]*<\/repo>$/);
   assert.equal(parseReply('Sure!\n{"summary":"ok","claims":[],"topFixes":[]}').summary, 'ok');
-  assert.equal(parseReply('no json here').summary, 'no json here');
+  assert.equal(parseReply('no json here'), null);
 });

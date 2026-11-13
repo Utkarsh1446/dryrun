@@ -50,7 +50,7 @@ Without `NEAR_AI_API_KEY` the free check, the directory, the board, rank, idea c
 ## Where NEAR is used
 
 - **NEAR Intents 1Click API** (`lib/pay.js`): the buyer pays from any listed chain and token; the service receives USDC on NEAR. No wallet connection and no custody. 1Click issues a one-time deposit address and refunds failures. Payment counts only when the 1Click status is settled, to the configured account, in USDC, for the full amount.
-- **NEAR AI Cloud** (`lib/deep.js` for the paid review, `lib/ai.js` for the optional criteria score and the optional idea note): OpenAI-compatible chat completions. These models reason before they answer, so requests set a large `max_tokens` and, when `message.content` is null, read `message.reasoning_content`. The paid review then calls `GET /v1/signature/{chat_id}?model=<model>&signing_algo=ecdsa`. A live check of that endpoint returned `signature_kind: gateway`. The app shows that kind. It does not describe the signature as an enclave or model attestation.
+- **NEAR AI Cloud** (`lib/deep.js` for the paid review, `lib/ai.js` for the optional criteria score and the optional idea note): OpenAI-compatible chat completions. Requests send `reasoning_effort: low` (override with `NEAR_AI_REASONING_EFFORT`) and a large `max_tokens`. The answer is taken from `message.content` only. `reasoning_content` is never shown. If the finish reason is `length` or the content is not JSON, the call is retried once with a shorter repo excerpt. If that also fails, the review returns an error and the payment is not marked used, so the same deposit can be retried. The signature request is `GET /v1/signature/{chat_id}?model=<model>&signing_algo=ecdsa`. A live check returned `signature_kind: gateway`. That is not described as an enclave or model attestation.
 
 The directory adapter and the rule checks do not call NEAR. They are the part you would replace for another hackathon. See [docs/INTELLIGENCE.md](docs/INTELLIGENCE.md).
 
@@ -95,6 +95,7 @@ Without `NEAR_AI_API_KEY` that command prints a skip line and exits 0. It does n
 | `DRYRUN_PRICE_USD` | Deep-review price. Default `5`. The page reads this from the server. |
 | `NEAR_AI_API_KEY` | NEAR AI Cloud key. Unset: no model calls. Deep review returns 503. |
 | `NEAR_AI_MODEL` | Optional override for every model call. Unset: deep review uses `z-ai/glm-5.3`; criteria scores and idea notes use `z-ai/glm-5.3-flash`. `zai-org/GLM-5.1-FP8` is a deprecated alias. |
+| `NEAR_AI_REASONING_EFFORT` | Optional. Default `low`. `low` keeps the answer in `content` instead of spending the token budget on reasoning. |
 | `DRYRUN_FREE_DEEP` | `1` skips payment. Do not set this on a public host. |
 | `DRYRUN_AI_BOARD` | `1` and a key: also ask the flash model to score each leaderboard repo. Off by default, because that would call the model once per repository. |
 | `ONECLICK_JWT` | Optional 1Click partner token (lower fee). |
@@ -127,7 +128,7 @@ This repository is not deployed from here. Publishing the repo, posting the demo
 
 Verified in this workspace on 13 Nov 2026:
 
-- `npm test` (rule checks, payment gating, repo-URL rejection, prompt fencing, ranking and ties, repo matching, clustering, the directory adapter, the one-page-at-a-time crawl, and mocked NEAR AI responses: null `content` plus `reasoning_content`, and a gateway signature).
+- `npm test` (rule checks, payment gating, repo-URL rejection, prompt fencing, ranking and ties, repo matching, clustering, the directory adapter, the one-page-at-a-time crawl, and mocked NEAR AI responses: `reasoning_effort: low`, a `length` finish retried on a shorter prompt, reasoning text not shown as the review, a failed review leaving the deposit unused, and a gateway signature).
 - A live read of the NEAR HACKATHON directory: **836 entries**, 105 pages. The page and `/api/overview` take their counts from that read. At one moment in the same run, with 720 of 836 demo posts read, **201 repositories were matched** (196 from a link in the demo post, 5 from a name search), **61 had been scored**, none had failed to clone, and one repository was linked from more than one entry. Six tracks were under 12% of the directory. The quietest were Investment Thesis (54), Memecoins (67), and Games (79). Those counts are a point in the scan, not constants.
 - The idea sentence "a leash for agent spending limits" overlapped the leash and agent name clusters and listed Leash entries. `https://github.com/halfabillion/near-leash` scored 96 and, at that moment, placed 14th among scored repositories and 11th in AI Security & Defense. An organizer paste put a missing repository first ("will not clone") and flagged a repeated URL that the directory also names.
 - DryRun's own free check, run on this working tree, scored 100 with no failures and no warnings.

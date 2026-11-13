@@ -1,8 +1,7 @@
 // Live NEAR AI Cloud check. Skips cleanly when NEAR_AI_API_KEY is unset.
 // Never prints the key. Usage: npm run smoke:ai -- https://github.com/owner/repo
 import { criteriaScore } from '../lib/ai.js';
-import { modelId } from '../lib/deep.js';
-import { deepReview } from '../lib/deep.js';
+import { deepReview, modelId, reasoningEffort } from '../lib/deep.js';
 import { snapshot } from '../lib/repo.js';
 
 const repo = process.argv[2] || 'https://github.com/Axlnd3r/NePu';
@@ -26,8 +25,8 @@ function signatureLine(signature) {
 
 let failed = false;
 console.log(`smoke:ai ${repo}`);
-console.log(`criteria model ${modelId('score')}`);
-console.log(`deep model ${modelId('deep')}`);
+console.log(`criteria model ${modelId('score')} reasoning ${reasoningEffort()}`);
+console.log(`deep model ${modelId('deep')} reasoning ${reasoningEffort()}`);
 
 let snap;
 try {
