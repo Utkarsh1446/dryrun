@@ -36,6 +36,12 @@ function paintHome(o) {
   $('stat-room').textContent = o?.ready ? num(room) : '…';
   $('stat-matched').textContent = o?.ready ? num(o.coverage?.matched) : '…';
   $('stat-scored').textContent = o?.ready ? num(o.coverage?.scored) : '…';
+  $('b-entries').textContent = $('stat-entries').textContent;
+  $('b-scored').textContent = $('stat-scored').textContent;
+  $('b-matched').textContent = $('stat-matched').textContent;
+  if (o?.ready) paintHomeTracks(o);
+  const view = (document.querySelector('[data-view]:not([hidden])') || {}).dataset?.view;
+  if (view === 'home') { refreshHomeBoard(); paintRobotsTile(); }
   const bits = [scanLine(o?.scan)];
   if (o?.fetchedAt) bits.push(`Directory read ${when(o.fetchedAt)}.`);
   if (o?.scan?.error) bits.push(o.scan.error);
@@ -48,6 +54,49 @@ function paintHome(o) {
   $('pay-note').textContent = o ? (o.paymentsLive
     ? 'Deep-review payments are live in this process.'
     : 'Deep-review quotes are dry in this process until DRYRUN_RECIPIENT is set. The price above is still the configured price.') : '';
+}
+
+const RING_COLORS = ['#605EA7', '#A5A0FF', '#11C8D5', '#FC79A4', '#FFCB3A'];
+function paintHomeTracks(o) {
+  const tracks = (o?.tracks || []).slice().sort((a, b) => b.count - a.count);
+  const total = tracks.reduce((a, t) => a + t.count, 0) || 1;
+  let at = 0;
+  const stops = tracks.slice(0, 5).map((t, i) => { const from = at; at += (t.count / total) * 100; return `${RING_COLORS[i]} ${from.toFixed(1)}% ${at.toFixed(1)}%`; });
+  if (stops.length) $('home-ring').style.background = `conic-gradient(${stops.join(', ')}, #E9EDEC ${at.toFixed(1)}% 100%)`;
+  $('home-ring-key').replaceChildren(...tracks.slice(0, 3).map((t, i) => {
+    const li = el('li');
+    const dot = el('i'); dot.style.background = RING_COLORS[i];
+    li.append(dot, document.createTextNode(`${t.label} ${num(t.count)}`));
+    return li;
+  }));
+  $('tile-crowd').replaceChildren(...tracks.slice(0, 4).map((t) => el('span', '', `${t.label} ${num(t.count)}`)));
+}
+
+async function refreshHomeBoard() {
+  if (state.homeBoardAt && Date.now() - state.homeBoardAt < 60000) return;
+  state.homeBoardAt = Date.now();
+  try {
+    const f = await api('/api/field');
+    const top = [...(f.board || [])].sort((a, b) => a.rank - b.rank).slice(0, 5);
+    if (!top.length) return;
+    $('home-board').replaceChildren(...top.map((r) => {
+      const li = el('li');
+      li.append(el('i', '', String(r.rank)), el('span', '', r.name), el('b', '', String(r.score)));
+      return li;
+    }));
+    $('tile-top').textContent = String(top[0].score);
+    $('tile-top-name').textContent = `${top[0].name} · #1 of ${num(f.board.length)} scored`;
+  } catch { state.homeBoardAt = 0; }
+}
+
+async function paintRobotsTile() {
+  if (state.robots) return;
+  try {
+    const r = await fetch('/robots.txt');
+    const t = await r.text();
+    state.robots = true;
+    $('tile-robots').textContent = t.trim().split('\n').filter(Boolean).slice(0, 5).join('\n');
+  } catch { /* leave the placeholder */ }
 }
 
 function coverageLine(f) {
@@ -291,8 +340,8 @@ function signalList(quality) {
   for (const sg of quality?.signals || []) {
     const li = el('li');
     const top = el('div', 'sig-top');
-    top.append(el('span', '', sg.label), el('b', '', `${Math.round(sg.points)}/${sg.weight}`));
-    const bar = el('div', 'bar');
+    top.append(el('span', '', sg.label), el('b', '', `${Math.round(sg.points * 10) / 10}/${sg.weight}`));
+    const bar = el('div', `bar${(sg.value || 0) < 0.5 ? ' lo' : ''}`);
     const span = el('span');
     span.style.width = `${Math.round((sg.value || 0) * 100)}%`;
     bar.append(span);
@@ -307,8 +356,12 @@ function scoreClass(n) { return n >= 75 ? 'good' : n >= 50 ? 'warn' : 'bad'; }
 
 function judgeBlock(r) {
   const box = el('div', 'judge');
-  box.append(el('h2', '', 'AI judge'));
+  const h = el('div', 'sec-h');
+  h.style.margin = '0';
+  h.append(el('h2', '', 'AI judge'));
+  box.append(h);
   if (!r.aiJudging) {
+    h.append(el('span', 'tag warn', 'off on this server'));
     box.append(el('p', 'banner', 'AI judging is off on this server (no NEAR_AI_API_KEY). The score above is the deterministic content score.'));
     return box;
   }
@@ -317,7 +370,7 @@ function judgeBlock(r) {
     box.append(el('p', 'small', `AI judge did not return a score: ${j?.error || 'no reply'}. The content score still applies.`));
     return box;
   }
-  const head = el('div', 'scoreline');
+  const head = el('div', 'jhead');
   head.append(el('b', scoreClass(j.score), String(j.score)));
   head.append(el('p', 'small', `Scored against ${state.overview?.hackathon?.name || 'the hackathon'}'s judging criteria and rules by ${j.model}${j.cached ? ' (cached for this commit)' : ''}. It cites files; an uncited score is capped at 2/5. Shown beside the content score; it does not move the board.`));
   box.append(head);
@@ -339,36 +392,42 @@ function readinessBlock(rd, opts = {}) {
   const box = el('div', 'ready');
   box.append(el('h2', '', 'AI readiness'));
   if (!rd) {
-    box.append(el('p', 'small', opts.empty || 'No live site found. Add a website link to the README (not a video or explorer link), or paste one in the site field.'));
+    box.append(el('p', '', opts.empty || 'No live site found. Add a website link to the README (not a video or explorer link), or paste one in the site field.'));
     return box;
   }
-  if (rd.error) { box.append(el('p', 'small', `Could not audit ${rd.url || 'the site'}: ${rd.error}`)); return box; }
-  const head = el('div', 'scoreline');
+  if (rd.error) { box.append(el('p', '', `Could not audit ${rd.url || 'the site'}: ${rd.error}`)); return box; }
+  const all = (rd.sections || []).flatMap((x) => x.checks);
+  const n = (st) => all.filter((c) => c.status === st).length;
+  const head = el('div', 'rhead');
   head.append(el('b', scoreClass(rd.score), String(rd.score)));
   const side = el('div');
-  const a = el('a', 'mono', rd.finalUrl || rd.url); a.href = rd.finalUrl || rd.url; a.target = '_blank'; a.rel = 'noopener nofollow';
-  side.append(a, el('p', 'small', 'Read without running JavaScript, the way AI crawlers and answer engines read it.' + (rd.cached ? ' Cached for 30 minutes.' : '')));
-  head.append(side);
+  const a = el('a', '', rd.finalUrl || rd.url); a.href = rd.finalUrl || rd.url; a.target = '_blank'; a.rel = 'noopener nofollow';
+  side.append(a, el('p', '', 'Read without running JavaScript, the way AI crawlers and answer engines read it.' + (rd.cached ? ' Cached for 30 minutes.' : '')));
+  const counts = el('div', 'rcount');
+  counts.append(el('span', 'tag good', `${n('pass')} pass`), el('span', 'tag warn', `${n('warn')} warn`), el('span', 'tag bad', `${n('fail')} fail`));
+  head.append(side, counts);
   box.append(head);
   const grid = el('div', 'ready-grid');
   for (const sec of rd.sections || []) {
     const cell = el('details', 'ready-sec');
-    if (sec.checks.some((c) => c.status === 'fail')) cell.open = true;
+    cell.open = true;
     const sum = el('summary');
-    const fails = sec.checks.filter((c) => c.status !== 'pass').length;
     sum.append(el('span', '', sec.label), el('b', scoreClass(sec.score), String(sec.score)));
-    cell.append(sum);
+    const meter = el('div', 'meter');
+    for (const c of sec.checks) meter.append(el('i', c.status === 'fail' ? 'f' : c.status === 'warn' ? 'w' : ''));
+    cell.append(sum, meter);
     const ul = el('ul', 'results');
-    for (const c of sec.checks) {
+    const order = { fail: 0, warn: 1, pass: 2 };
+    for (const c of [...sec.checks].sort((x, y) => order[x.status] - order[y.status])) {
       const li = el('li');
       const top = el('div');
-      top.append(el('span', `tag ${c.status === 'fail' ? 'bad' : c.status === 'warn' ? 'warn' : 'good'}`, c.status), el('span', '', ` ${c.label}`));
-      li.append(top, el('p', 'small', c.detail || ''));
+      top.append(el('span', `tag ${c.status === 'fail' ? 'bad' : c.status === 'warn' ? 'warn' : 'good'}`, c.status), el('span', '', c.label));
+      li.append(top);
+      if (c.status !== 'pass' || c.detail) li.append(el('p', 'small', c.detail || ''));
       if (c.status !== 'pass' && c.fix) li.append(el('p', '', `Fix: ${c.fix}`));
       ul.append(li);
     }
     cell.append(ul);
-    if (!fails) cell.append(el('p', 'small', 'All checks pass.'));
     grid.append(cell);
   }
   box.append(grid);
@@ -378,96 +437,125 @@ function readinessBlock(rd, opts = {}) {
 function paintRank(r) {
   const box = $('rank-out');
   box.replaceChildren();
-  const card = el('section', 'card');
-  const line = el('div', 'scoreline');
-  line.append(el('b', scoreClass(r.score), String(r.score)));
-  const meta = el('div');
-  meta.append(el('div', '', `${r.verdict || ''} · content score`));
+  const card = el('section', 'rcard');
   const p = r.placement || {};
-  meta.append(el('div', '', `Estimated rank ${p.rank} of ${p.of} scored repositories.`));
-  meta.append(el('p', 'small', `Rules check ${r.rulesScore}/100 (${r.fails} failure(s), ${r.warns} warning(s)) counts for 10 of the 100 points. ${p.note || ''}`));
+  const sc = el('div', `scorecard${r.score >= 75 ? '' : r.score >= 50 ? ' sc-warn' : ' sc-bad'}`);
+  sc.append(el('b', '', String(r.score)));
+  const meta = el('div');
+  meta.append(el('div', 'sc-v', r.verdict || 'Content score'));
+  meta.append(el('p', 'small', `Content score. Rules check ${r.rulesScore}/100 (${r.fails} failure(s), ${r.warns} warning(s)) counts for 10 of the 100 points. ${p.note || ''}`));
   if (r.directory) meta.append(el('p', 'small', `Directory: ${num(r.directory.total)} entries, ${num(r.directory.matched)} matched, ${num(r.directory.scored)} scored.`));
-  line.append(meta);
-  card.append(line);
+  sc.append(meta);
+  const place = el('div', 'place');
+  place.append(el('div', 'small', 'Estimated rank'));
+  const pb = el('b', '', `${p.rank ?? '—'} `);
+  pb.append(el('small', '', `of ${p.of ?? '—'}`));
+  place.append(pb);
   const tracks = Object.entries(p.tracks || {});
   if (tracks.length) {
     const chips = el('div', 'chips');
-    for (const [id, t] of tracks) chips.append(el('span', 'chip', `${trackName(id, state.overview?.hackathon?.tracks)} : ${t.rank} of ${t.of}`));
-    card.append(chips);
+    for (const [id, t] of tracks) chips.append(el('span', 'chip', `${trackName(id, state.overview?.hackathon?.tracks)} ${t.rank} of ${t.of}`));
+    place.append(chips);
   }
-  card.append(el('h2', '', 'What is inside'), signalList(r.quality));
+  sc.append(place);
+  card.append(sc);
+  const h = el('div', 'sec-h');
+  h.append(el('h2', '', 'What is inside'), el('span', 'small', `${(r.quality?.signals || []).length} signals · 100 points`));
+  card.append(h, signalList(r.quality));
   card.append(judgeBlock(r));
   card.append(readinessBlock(r.readiness));
-  card.append(el('h2', '', 'Fix these first'), resultList((r.fixes || []).slice(0, 10)));
+  const fh = el('div', 'sec-h');
+  fh.append(el('h2', '', 'Fix these first'));
+  card.append(fh, resultList((r.fixes || []).slice(0, 10)));
   box.append(card);
 }
 
 function startupBlock(st, label, link) {
   const box = el('div', 'startup');
-  box.append(el('h2', '', 'Startup lens'));
-  const note = el('p', 'small');
+  const head = el('div', 'shead');
+  const left = el('div');
+  left.append(el('h2', '', 'Startup lens'));
+  const note = el('p', 'note');
   note.append(document.createTextNode(`${label || ''} `));
-  if (link) { const a = el('a', 'mono', 'Source'); a.href = link; a.target = '_blank'; a.rel = 'noopener'; note.append(a); }
-  box.append(note);
-  if (!st) { box.append(el('p', 'banner', 'The startup lens needs NEAR_AI_API_KEY on this server. It is off here.')); return box; }
-  if (st.error) { box.append(el('p', 'small', `Startup lens did not return: ${st.error}`)); return box; }
-  const head = el('div', 'scoreline');
-  head.append(el('b', scoreClass(st.score), String(st.score)));
-  const side = el('div');
-  if (st.biggestRisk) side.append(el('p', '', `Biggest risk: ${st.biggestRisk}`));
-  if (st.fix) side.append(el('p', 'small', `Fix: ${st.fix}`));
-  head.append(side);
+  if (link) { const a = el('a', '', 'Source'); a.href = link; a.target = '_blank'; a.rel = 'noopener'; note.append(a); }
+  left.append(note);
+  head.append(left);
   box.append(head);
-  const ul = el('ul', 'results');
+  if (!st) { box.append(el('p', 'banner', 'The startup lens needs NEAR_AI_API_KEY on this server. It is off here.')); return box; }
+  if (st.error) { box.append(el('p', 'banner', `Startup lens did not return: ${st.error}`)); return box; }
+  head.append(el('b', '', String(st.score)));
+  const grid = el('div', 'lens');
   for (const c of st.criteria || []) {
-    const li = el('li');
-    const top = el('div');
-    top.append(el('span', `tag ${c.score >= 4 ? 'good' : c.score >= 3 ? 'warn' : 'bad'}`, `${c.score}/5`), el('span', '', ` ${c.label}`));
-    li.append(top, el('p', 'small', c.reason || ''));
-    ul.append(li);
+    const row = el('div', 'cri');
+    row.append(el('b', '', `${c.score}/5`));
+    const body = el('div');
+    body.append(el('b', '', c.label));
+    const dots = el('div', 'dots');
+    for (let i = 1; i <= 5; i++) dots.append(el('i', i <= c.score ? 'on' : ''));
+    body.append(dots, el('p', 'small', c.reason || ''));
+    row.append(body);
+    grid.append(row);
   }
-  box.append(ul);
+  box.append(grid);
+  if (st.biggestRisk || st.fix) {
+    const risk = el('div', 'risk');
+    const a = el('div'); a.append(el('span', 'k', 'BIGGEST RISK'), el('p', '', st.biggestRisk || '—'));
+    const b = el('div'); b.append(el('span', 'k', 'FIX'), el('p', '', st.fix || '—'));
+    risk.append(a, b);
+    box.append(risk);
+  }
   return box;
 }
 
 function paintIdea(r) {
   const box = $('idea-out');
   box.replaceChildren();
-  const card = el('section', 'card');
+  const card = el('section', 'rcard');
   card.append(el('p', 'small', r.mode === 'ai'
     ? `${num(r.total)} entries. Ranked by word rarity (BM25), then the top 20 were re-read by a model for the same problem, user, or mechanism. Matches under 40/100 are dropped.`
     : `${num(r.total)} entries. Ranked by word rarity (BM25 over names and ${num(r.withDescriptions)} demo-post descriptions). Generic words like "agent" or "NEAR" barely count.${r.aiOn ? '' : ' AI re-ranking is off on this server.'}${r.rerankError ? ` Model re-rank failed: ${r.rerankError}.` : ''}`));
   if (!r.specific) card.append(el('p', 'banner', 'This sentence is mostly generic words. Name the user, the problem, and how it works, and the matches get meaningful.'));
-  card.append(el('h2', '', 'Closest entries'));
-  if (!r.similar?.length) card.append(el('p', '', 'Nothing in the directory is close to this. That is a signal, not proof: the directory only shows names and demo posts.'));
+  const h = el('div', 'sec-h');
+  h.append(el('h2', '', 'Closest entries'), el('span', 'small', r.mode === 'ai' ? 'model re-ranked' : 'word rarity'));
+  card.append(h);
+  if (!r.similar?.length) card.append(el('p', 'empty', 'Nothing in the directory is close to this. That is a signal, not proof: the directory only shows names and demo posts.'));
   else {
-    const ul = el('ul', 'results');
+    const list = el('div', 'matches');
     for (const s of r.similar) {
-      const li = el('li');
-      const head = el('div');
-      const pctv = Math.round((s.score || 0) * 100);
-      head.append(el('span', `tag ${s.strength === 'strong' ? 'bad' : s.strength === 'partial' ? 'warn' : 'good'}`, `${pctv}`), el('span', '', ` ${s.name}`));
-      li.append(head);
-      const why = [];
-      if (s.reason) why.push(s.reason);
-      if (s.same?.length) why.push(`same ${s.same.join(', ')}`);
-      if (s.why?.phrases?.length) why.push(`phrases: ${s.why.phrases.join(', ')}`);
-      if (s.why?.terms?.length) why.push(`words: ${s.why.terms.join(', ')}`);
-      li.append(el('p', 'small', `${(s.trackLabels || []).join(', ')}${why.length ? ' · ' + why.join(' · ') : ''}`));
-      ul.append(li);
+      const row = el('div', 'match');
+      row.append(el('div', `s ${s.strength || 'weak'}`, String(Math.round((s.score || 0) * 100))));
+      const body = el('div');
+      body.append(el('b', '', s.name));
+      const meta = [(s.trackLabels || []).join(', ')];
+      if (s.reason) meta.push(s.reason);
+      if (s.same?.length) meta.push(`same ${s.same.join(', ')}`);
+      body.append(el('p', '', meta.filter(Boolean).join(' · ')));
+      const hits = el('p');
+      for (const ph of s.why?.phrases || []) hits.append(el('span', 'hl', ph));
+      for (const w of s.why?.terms || []) hits.append(el('span', 'hl w', w));
+      if (hits.childNodes.length) body.append(hits);
+      row.append(body);
+      list.append(row);
     }
-    card.append(ul);
+    card.append(list);
   }
-  card.append(el('h2', '', 'Crowding by track'));
+  const ch = el('div', 'sec-h');
+  ch.append(el('h2', '', 'Crowding by track'), el('span', 'small', 'similar entries only'));
+  card.append(ch);
   if (r.crowding?.length) {
-    const chips = el('div', 'chips');
-    for (const t of r.crowding) chips.append(el('span', 'chip', `${t.label} · ${t.similar} similar of ${num(t.entries)}`));
-    card.append(chips);
+    const grid = el('div', 'crowd');
+    for (const t of r.crowding) {
+      const c = el('div', 'cr');
+      c.append(el('b', '', String(t.similar)), el('span', '', `similar of ${num(t.entries)} · ${t.label}`));
+      grid.append(c);
+    }
+    card.append(grid);
   } else card.append(el('p', 'small', 'No track has a close match.'));
-  card.append(el('h2', '', 'Quietest tracks'));
-  const chips = el('div', 'chips');
-  for (const t of r.quiet || []) chips.append(el('span', 'chip', `${t.label} · ${num(t.count)}`));
-  card.append(chips);
+  const quiet = el('p', 'small');
+  quiet.style.marginTop = '14px';
+  quiet.append(document.createTextNode('Quietest tracks: '));
+  for (const t of r.quiet || []) quiet.append(el('span', 'chip', `${t.label} · ${num(t.count)}`), document.createTextNode(' '));
+  card.append(quiet);
   card.append(startupBlock(r.startup, r.startupLabel, r.startupLink));
   box.append(card);
 }
@@ -475,7 +563,7 @@ function paintIdea(r) {
 function paintTriage(job) {
   const box = $('org-out');
   box.replaceChildren();
-  const card = el('section', 'card');
+  const card = el('section', 'panel');
   card.append(el('p', '', job.done ? `Done. ${job.total} repositories.` : `Reading ${job.completed || 0} of ${job.total}.`));
   if (job.overflow) card.append(el('p', 'small', `${job.overflow} more URLs were past the 20-repository cap and were not read.`));
   if (job.error) card.append(el('p', 'err', job.error));
@@ -520,7 +608,7 @@ $('rank-form').addEventListener('submit', async (e) => {
   show($('rank-err'));
   $('rank-go').disabled = true;
   $('rank-go').textContent = 'Cloning and reading…';
-  $('rank-out').replaceChildren(el('p', 'small', 'Cloning and reading the repository. This can take a minute. Nothing in it is executed.'));
+  $('rank-out').replaceChildren(el('div', 'empty', 'Cloning and reading the repository. This can take a minute. Nothing in it is executed.'));
   try { paintRank(await api('/api/rank', { repo: $('rank-repo').value.trim(), site: $('rank-site').value.trim() || undefined, tracks: checked('rank-tracks') })); }
   catch (err) { show($('rank-err'), err.message); $('rank-out').replaceChildren(); }
   $('rank-go').disabled = false;
@@ -566,7 +654,8 @@ $('form').addEventListener('submit', async (e) => {
   try {
     const r = await api('/api/check', { repo, submission });
     $('score').textContent = r.score;
-    $('score').className = scoreClass(r.score);
+    $('score').className = '';
+    $('score').parentElement.className = `scorecard${r.score >= 75 ? '' : r.score >= 50 ? ' sc-warn' : ' sc-bad'}`;
     $('verdict').textContent = `${r.verdict} · content score`;
     $('counts').textContent = `Rules check ${r.rulesScore}/100: ${r.fails} failure(s), ${r.warns} warning(s), ${r.results.length - r.fails - r.warns} passed. ${r.aiJudging ? 'AI judging is available on Where do I rank.' : 'AI judging is off on this server.'} Directory size in this reading: ${num(r.directorySize)}.`;
     $('signals').replaceChildren(...signalList(r.quality).childNodes);

@@ -321,6 +321,7 @@ const FILES = {
   '/app.js': ['public/app.js', 'text/javascript; charset=utf-8'],
   '/app.css': ['public/app.css', 'text/css; charset=utf-8'],
   '/og.png': ['public/og.png', 'image/png'],
+  '/favicon.svg': ['public/favicon.svg', 'image/svg+xml'],
 };
 
 createServer(async (req, res) => {
