@@ -324,6 +324,7 @@ const FILES = {
   '/favicon.svg': ['public/favicon.svg', 'image/svg+xml'],
 };
 
+const indexCache = {};
 createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const send = (code, obj, type = 'application/json') => {
@@ -335,7 +336,7 @@ createServer(async (req, res) => {
     const route = routes[`${method} ${url.pathname}`];
     if (route) return send(200, await route(req, url));
     if (method === 'GET' && url.pathname === '/') {
-      const raw = await readFile(join(root, 'public/index.html'), 'utf8');
+      const raw = indexCache.raw || (indexCache.raw = await readFile(join(root, 'public/index.html'), 'utf8'));
       const html = raw
         .replaceAll('__NAME__', esc(PRODUCT.name))
         .replaceAll('__TAGLINE__', esc(PRODUCT.tagline))
