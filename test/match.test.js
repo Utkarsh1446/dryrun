@@ -83,7 +83,7 @@ test('github search treats 403 as a rate limit and normalises hits', async () =>
 test('demo fetch is retried only after the backoff', () => {
   const now = Date.parse('2026-11-13T00:00:00Z');
   assert.equal(needsDemoFetch(undefined, now), true);
-  assert.equal(needsDemoFetch({ at: '2026-11-13T00:00:00Z', error: null }, now + 1000), false);
+  assert.equal(needsDemoFetch({ at: '2026-11-13T00:00:00Z', error: null, text: '' }, now + 1000), false);
   assert.equal(needsDemoFetch({ at: '2026-11-13T00:00:00Z', error: 'HTTP 500' }, now + 1000), false);
   assert.equal(needsDemoFetch({ at: '2026-11-12T00:00:00Z', error: 'HTTP 500' }, now), true);
 });

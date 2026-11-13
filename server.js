@@ -4,20 +4,24 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRODUCT } from './lib/brand.js';
-import { criteriaScore, ideaAssist } from './lib/ai.js';
-import { checkDirectory, checkRepo, checkSubmission, score } from './lib/checks.js';
-import { ideaOverlap, quietTracks } from './lib/cluster.js';
+import { rerankIdea, RERANK_KEEP, startupLens } from './lib/ai.js';
+import { assessRepo } from './lib/assess.js';
+import { createJudge } from './lib/judge.js';
+import { readmeOf } from './lib/quality.js';
+import { LABEL as STARTUP_LABEL, LINK as STARTUP_LINK } from './lib/rubrics/startup.js';
+import { buildIndex, DOMAIN_GENERIC, searchIdea, similarByTrack, stem, strength } from './lib/similar.js';
+import { checkDirectory, checkSubmission, score } from './lib/checks.js';
+import { quietTracks } from './lib/cluster.js';
 import { deepReview, finishPaidReview } from './lib/deep.js';
 import { overviewFrom } from './lib/field.js';
 import { near } from './lib/hackathons/near.js';
 import { canonRepo } from './lib/match.js';
 import * as pay from './lib/pay.js';
-import { placeUser, summarise } from './lib/rank.js';
+import { placeUser } from './lib/rank.js';
 import { validRepo, snapshot } from './lib/repo.js';
 import { nearRulebook } from './lib/rulebook.js';
 import { createScanner } from './lib/scan.js';
 import { createStore } from './lib/store.js';
-import { tokens } from './lib/text.js';
 import { orderTriage, parseRepoList } from './lib/triage.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -28,7 +32,9 @@ const pendingReviews = new Set();
 const jobs = new Map();
 
 const store = createStore(process.env.DRYRUN_DATA || join(root, 'data'));
+const judge = createJudge({ store, rubric: nearRulebook.judging });
 const scanner = process.env.DRYRUN_SCAN === '0' ? null : createScanner({
+  judge,
   adapter: near,
   rulebook: nearRulebook,
   store,
@@ -114,8 +120,8 @@ async function runTriage(job, items) {
       const directoryNames = scanner ? scanner.namesForRepo(item.repo) : [];
       try {
         const snap = await snapshot(item.repo);
-        const summary = summarise(nearRulebook.checkRepo(snap), nearRulebook.score);
-        raw.push({ repo: item.repo, duplicate: item.duplicate, copies: item.copies, directoryNames, error: null, ...summary });
+        const { results, quality, ...summary } = await assessRepo(snap, { rulebook: nearRulebook });
+        raw.push({ repo: item.repo, duplicate: item.duplicate, copies: item.copies, directoryNames, error: null, ...summary, content: quality.signals.map(({ id, label, points, weight }) => ({ id, label, points, weight })) });
       } catch (e) {
         raw.push({
           repo: item.repo,
@@ -152,15 +158,14 @@ const routes = {
     const trackList = Array.isArray(tracks) ? [...new Set(tracks.map(String))].slice(0, 13) : [];
     const snap = await snapshot(url);
     const submission = trackList.length ? { tracks: trackList } : {};
-    const results = [
-      ...checkRepo(snap),
-      ...checkSubmission(submission),
-      ...checkDirectory(directoryProjects(), { tracks: trackList }),
-    ];
-    const summary = summarise(results, score);
+    const extraResults = [...checkSubmission(submission), ...checkDirectory(directoryProjects(), { tracks: trackList })];
+    const [a, ai] = await Promise.all([
+      assessRepo(snap, { rulebook: nearRulebook, extraResults }),
+      judge.judge(url, snap),
+    ]);
+    const { results, ...summary } = a;
     const current = field();
     const placement = placeUser({ ...summary, tracks: trackList }, current._ranked, url);
-    const ai = process.env.NEAR_AI_API_KEY ? await criteriaScore(snap) : null;
     return {
       speculation: true,
       disclaimer: PRODUCT.disclaimer,
@@ -173,7 +178,9 @@ const routes = {
         matched: current.coverage?.matched ?? null,
         scored: current.coverage?.scored ?? null,
       },
-      ai,
+      aiJudging: Boolean(process.env.NEAR_AI_API_KEY),
+      judge: ai,
+      judgeCriteria: nearRulebook.judging.criteria.map(({ id, label }) => ({ id, label })),
       aiUsedForRank: false,
     };
   },
@@ -183,26 +190,49 @@ const routes = {
     if (idea.length < 3 || idea.length > 2000) throw Object.assign(new Error('Describe the idea in 3–2000 characters'), { status: 400 });
     const current = field();
     if (!current.ready) throw Object.assign(new Error('The directory is still loading. Try again in a minute.'), { status: 503 });
-    const projects = scanner.projects();
-    const similar = ideaOverlap(idea, projects, { limit: 8 }).map((row) => ({
-      ...row,
-      trackLabels: row.tracks.map((id) => near.tracks.find((t) => t.id === id)?.label || id),
-    }));
-    const ideaTokens = new Set(tokens(idea));
-    const clusters = (current.clusters?.tokens || []).filter((c) => ideaTokens.has(c.label)).slice(0, 6)
-      .map(({ label, count, names }) => ({ label, count, names }));
-    const quiet = quietTracks(current.tracks, 3);
-    let ai = null;
-    if (process.env.NEAR_AI_API_KEY) {
-      const context = [
-        `Hackathon: ${near.name}`,
-        `Tracks: ${near.tracks.map((t) => `${t.id} (${t.label}, ${current.tracks.find((x) => x.id === t.id)?.count ?? 0} entries)`).join('; ')}`,
-        `Similar names: ${similar.map((s) => s.name).join('; ') || 'none'}`,
-        `Quietest tracks: ${quiet.map((t) => `${t.id} ${t.count}`).join('; ')}`,
-      ].join('\n');
-      ai = await ideaAssist(idea, context, { trackIds: near.tracks.map((t) => t.id) });
+    const projects = scanner.ideaProjects();
+    const lex = searchIdea(buildIndex(projects), idea, { limit: 20 });
+    const label = (id) => near.tracks.find((t) => t.id === id)?.label || id;
+    const [rr, startup] = await Promise.all([
+      rerankIdea(idea, lex.results.map(({ id, name, blurb, tracks: t }) => ({ id, name, blurb, tracks: t }))),
+      startupLens(idea, { kind: 'idea' }),
+    ]);
+    const lexById = new Map(lex.results.map((r) => [r.id, r]));
+    let mode = 'lexical';
+    let similar;
+    if (rr?.matches) {
+      mode = 'ai';
+      similar = rr.matches.filter((m) => m.overlap >= RERANK_KEEP).sort((a, b) => b.overlap - a.overlap).slice(0, 10).map((m) => {
+        const lx = lexById.get(m.id) || {};
+        return { id: m.id, name: m.name, tracks: m.tracks, score: m.overlap / 100, overlap: m.overlap, strength: m.overlap >= 70 ? 'strong' : 'partial', same: m.same, reason: m.reason, sim: lx.sim ?? null, why: lx.why || null };
+      });
+    } else {
+      similar = lex.results.filter((r) => r.sim >= 0.2).slice(0, 10).map((r) => ({ id: r.id, name: r.name, tracks: r.tracks, score: r.sim, sim: r.sim, strength: strength(r.sim), why: r.why }));
     }
-    return { speculation: true, disclaimer: PRODUCT.disclaimer, similar, quiet, clusters, tracks: current.tracks, total: current.total, ai };
+    similar = similar.map((s) => ({ ...s, trackLabels: (s.tracks || []).map(label) }));
+    const crowding = similarByTrack(similar, current.tracks, { threshold: mode === 'ai' ? 0.5 : 0.3 });
+    const ideaWords = new Set(lex.results.flatMap((r) => r.why.terms));
+    const clusters = (current.clusters?.tokens || []).filter((c) => ideaWords.has(stem(c.label)) && !DOMAIN_GENERIC.has(stem(c.label))).slice(0, 6)
+      .map(({ label: l, count, names }) => ({ label: l, count, names }));
+    return {
+      speculation: true,
+      disclaimer: PRODUCT.disclaimer,
+      mode,
+      specific: lex.specific,
+      info: lex.info,
+      rerankError: rr?.error || null,
+      similar,
+      crowding,
+      quiet: quietTracks(current.tracks, 3),
+      clusters,
+      tracks: current.tracks,
+      total: current.total,
+      withDescriptions: projects.filter((p) => p.blurb).length,
+      startup,
+      startupLabel: STARTUP_LABEL,
+      startupLink: STARTUP_LINK,
+      aiOn: Boolean(process.env.NEAR_AI_API_KEY),
+    };
   },
   'POST /api/triage': async (req) => {
     const { text } = await body(req);
@@ -226,8 +256,8 @@ const routes = {
   'POST /api/check': async (req) => {
     const { repo, submission = {} } = await body(req);
     const snap = await snapshot(repo);
-    const results = [...checkRepo(snap), ...checkSubmission(submission), ...checkDirectory(directoryProjects(), submission)];
-    return { repo: canonRepo(repo) || repo, ...score(results), results, directorySize: directoryProjects().length };
+    const a = await assessRepo(snap, { rulebook: nearRulebook, extraResults: [...checkSubmission(submission), ...checkDirectory(directoryProjects(), submission)] });
+    return { repo: canonRepo(repo) || repo, ...a, rules: score(a.results), directorySize: directoryProjects().length, aiJudging: Boolean(process.env.NEAR_AI_API_KEY) };
   },
   'GET /api/tokens': async () => ({ priceUsd: meta().priceUsd, live: meta().paymentsLive, freeDeep: FREE_DEEP, tokens: await pay.tokens() }),
   'POST /api/quote': async (req) => {
@@ -250,7 +280,15 @@ const routes = {
       depositAddress,
       repo: url,
       paid: async () => pay.isPaid(await pay.status(depositAddress)),
-      run: async () => deepReview(await snapshot(url)),
+      run: async () => {
+        const snap = await snapshot(url);
+        const readme = readmeOf(snap.files)?.text || '';
+        const [review, startup] = await Promise.all([
+          deepReview(snap),
+          startupLens(readme || [...snap.files.keys()].slice(0, 80).join('\n'), { kind: 'repo' }).catch(() => null),
+        ]);
+        return { ...review, startup, startupLabel: STARTUP_LABEL, startupLink: STARTUP_LINK };
+      },
     });
   },
 };

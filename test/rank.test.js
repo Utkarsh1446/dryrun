@@ -105,7 +105,7 @@ test('field builder ranks only scored rows and keeps the speculation flag', () =
     },
     snapshots: [{ at: '2026-11-13T00:00:00Z', total: 2, byTrack: { open: 2 } }],
     matches: { 1: { repo: 'https://github.com/acme/alpha', confidence: 'high', source: 'demo-post', note: 'from the post', checkedDemo: true } },
-    scores: { 'https://github.com/acme/alpha': { score: 90, fails: 0, warns: 1, verdict: 'Submittable, with risks', flags: {}, fixes: [], at: '2026-11-13T00:00:00Z' } },
+    scores: { 'https://github.com/acme/alpha': { score: 90, fails: 0, warns: 1, verdict: 'Submittable, with risks', flags: {}, fixes: [], at: '2026-11-13T00:00:00Z', v: 3 } },
     scan: { phase: 'idle' },
   });
   assert.equal(field.speculation, true);

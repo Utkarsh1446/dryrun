@@ -77,7 +77,7 @@
         <div class="steps">
           <article class="step"><em>01</em><h3>Read the directory.</h3><p>One page after another, with a pause between them. A snapshot is kept when the count changes.</p></article>
           <article class="step"><em>02</em><h3>Match a repository.</h3><p>A link in the project's own demo post is high confidence. A name search is lower, and it is labeled as a search.</p></article>
-          <article class="step"><em>03</em><h3>Score the rules.</h3><p>Clone, read, delete. Public repo, license, README commands that resolve, no secrets in the tree. Nothing is run.</p></article>
+          <article class="step"><em>03</em><h3>Read the content.</h3><p>Clone, read, delete. README substance, real code vs scaffolding, tests that assert, NEAR used in code, commit spread, a live demo. Nothing is run.</p></article>
           <article class="step"><em>04</em><h3>Place yourself.</h3><p>Paste a repo. The rank is among the repositories actually scored, with the fixes in order.</p></article>
         </div>
       </div>
@@ -126,7 +126,7 @@
             <div class="billed">No account, no wallet</div>
             <a class="btn btn-line btn-w" href="#check">Check a repo</a>
             <ul>
-              <li>Deterministic rule check on a public repo</li>
+              <li>Content score: README, code, tests, NEAR in code, history</li>
               <li>Submission form and demo post checks</li>
               <li>Track crowding and name clusters</li>
               <li>Speculative leaderboard</li>
@@ -143,6 +143,7 @@
             <ul>
               <li class="lead-in">Everything in Builders, plus:</li>
               <li>A model on NEAR AI Cloud reads the README against the code</li>
+              <li>Startup lens inspired by Garry Tan's published questions</li>
               <li>Claims in the README checked against the tree</li>
               <li>A prediction of where a fresh clone fails</li>
               <li>One payment, one repository, no wallet connection</li>
@@ -278,7 +279,7 @@
         <div class="vhead">
           <p class="eyebrow">Idea check</p>
           <h1 class="d1"><span>Say it in a sentence.</span><span class="grad">See who is already there.</span></h1>
-          <p class="lead">This is keyword overlap with project names in the live directory. It is not a novelty judgement, and it cannot see repositories the directory does not name.</p>
+          <p class="lead">Matched on rare words and phrases over project names and demo posts, with generic words like "agent" or "NEAR" down-weighted, then re-read by a model for the same problem, user, or mechanism. Plus a startup lens inspired by Garry Tan's published questions.</p>
         </div>
         <form id="idea-form" class="card form">
           <label for="idea-text">The idea</label>
@@ -345,6 +346,9 @@
         </form>
         <section id="out" class="card" hidden aria-live="polite">
           <div class="scoreline"><b id="score"></b><div><div id="verdict"></div><div class="small" id="counts"></div></div></div>
+          <h2>What is inside</h2>
+          <ul class="sigs" id="signals"></ul>
+          <h2>Rules check</h2>
           <ul class="results" id="results"></ul>
         </section>
         <section id="deep" class="card deep" hidden>

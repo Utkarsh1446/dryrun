@@ -1,5 +1,7 @@
 # DryRun
 
+Live demo: https://dryrun-pfgy.onrender.com
+
 See the field before the only submission that counts.
 
 DryRun rehearses a one-shot hackathon submission against the published rules, and reads the live public directory so a builder can see crowding, a speculative rank, and whether an idea already has a crowd. NEAR HACKATHON is the live example. Another event is another directory adapter and another rulebook.

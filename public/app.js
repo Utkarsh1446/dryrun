@@ -286,17 +286,66 @@ function resultList(results) {
   return ul;
 }
 
+function signalList(quality) {
+  const ul = el('ul', 'sigs');
+  for (const sg of quality?.signals || []) {
+    const li = el('li');
+    const top = el('div', 'sig-top');
+    top.append(el('span', '', sg.label), el('b', '', `${Math.round(sg.points)}/${sg.weight}`));
+    const bar = el('div', 'bar');
+    const span = el('span');
+    span.style.width = `${Math.round((sg.value || 0) * 100)}%`;
+    bar.append(span);
+    li.append(top, bar, el('p', 'small', sg.detail || ''));
+    if (sg.evidence?.length) li.append(el('p', 'small mono', sg.evidence.join(' · ')));
+    ul.append(li);
+  }
+  return ul;
+}
+
+function scoreClass(n) { return n >= 75 ? 'good' : n >= 50 ? 'warn' : 'bad'; }
+
+function judgeBlock(r) {
+  const box = el('div', 'judge');
+  box.append(el('h2', '', 'AI judge'));
+  if (!r.aiJudging) {
+    box.append(el('p', 'banner', 'AI judging is off on this server (no NEAR_AI_API_KEY). The score above is the deterministic content score.'));
+    return box;
+  }
+  const j = r.judge;
+  if (!j || j.error) {
+    box.append(el('p', 'small', `AI judge did not return a score: ${j?.error || 'no reply'}. The content score still applies.`));
+    return box;
+  }
+  const head = el('div', 'scoreline');
+  head.append(el('b', scoreClass(j.score), String(j.score)));
+  head.append(el('p', 'small', `Scored against ${state.overview?.hackathon?.name || 'the hackathon'}'s judging criteria and rules by ${j.model}${j.cached ? ' (cached for this commit)' : ''}. It cites files; an uncited score is capped at 2/5. Shown beside the content score; it does not move the board.`));
+  box.append(head);
+  if (j.summary) box.append(el('p', '', j.summary));
+  const ul = el('ul', 'results');
+  for (const c of j.criteria || []) {
+    const li = el('li');
+    const top = el('div');
+    top.append(el('span', `tag ${c.score >= 4 ? 'good' : c.score >= 3 ? 'warn' : 'bad'}`, `${c.score}/5`), el('span', '', ` ${c.label}`));
+    li.append(top, el('p', 'small', c.reason || ''));
+    if (c.evidence?.length) li.append(el('p', 'small mono', c.evidence.map((e) => `${e.path}${e.lines ? ':' + e.lines : ''}${e.note ? ' — ' + e.note : ''}`).join(' · ')));
+    ul.append(li);
+  }
+  box.append(ul);
+  return box;
+}
+
 function paintRank(r) {
   const box = $('rank-out');
   box.replaceChildren();
   const card = el('section', 'card');
   const line = el('div', 'scoreline');
-  line.append(el('b', r.fails ? 'bad' : r.warns ? 'warn' : 'good', String(r.score)));
+  line.append(el('b', scoreClass(r.score), String(r.score)));
   const meta = el('div');
-  meta.append(el('div', '', r.verdict || ''));
+  meta.append(el('div', '', `${r.verdict || ''} · content score`));
   const p = r.placement || {};
   meta.append(el('div', '', `Estimated rank ${p.rank} of ${p.of} scored repositories.`));
-  meta.append(el('p', 'small', p.note || ''));
+  meta.append(el('p', 'small', `Rules check ${r.rulesScore}/100 (${r.fails} failure(s), ${r.warns} warning(s)) counts for 10 of the 100 points. ${p.note || ''}`));
   if (r.directory) meta.append(el('p', 'small', `Directory: ${num(r.directory.total)} entries, ${num(r.directory.matched)} matched, ${num(r.directory.scored)} scored.`));
   line.append(meta);
   card.append(line);
@@ -306,52 +355,79 @@ function paintRank(r) {
     for (const [id, t] of tracks) chips.append(el('span', 'chip', `${trackName(id, state.overview?.hackathon?.tracks)} : ${t.rank} of ${t.of}`));
     card.append(chips);
   }
-  card.append(el('h2', '', 'Fix these first'), resultList(r.fixes || []));
-  if (r.ai?.scores) {
-    card.append(el('h2', '', 'Model reading'));
-    card.append(el('p', 'small', 'This does not change the rank. It has no published weights behind it.'));
-    const chips = el('div', 'chips');
-    for (const [k, v] of Object.entries(r.ai.scores)) chips.append(el('span', 'chip', `${k} ${v}/5`));
-    card.append(chips);
-    if (r.ai.note) card.append(el('p', '', r.ai.note));
-  } else {
-    card.append(el('p', 'small', r.ai?.error ? `Model reading failed: ${r.ai.error}` : 'No model score in this process. Set NEAR_AI_API_KEY to add one. The rank stays the rule score either way.'));
-  }
+  card.append(el('h2', '', 'What is inside'), signalList(r.quality));
+  card.append(judgeBlock(r));
+  card.append(el('h2', '', 'Fix these first'), resultList((r.fixes || []).slice(0, 10)));
   box.append(card);
+}
+
+function startupBlock(st, label, link) {
+  const box = el('div', 'startup');
+  box.append(el('h2', '', 'Startup lens'));
+  const note = el('p', 'small');
+  note.append(document.createTextNode(`${label || ''} `));
+  if (link) { const a = el('a', 'mono', 'Source'); a.href = link; a.target = '_blank'; a.rel = 'noopener'; note.append(a); }
+  box.append(note);
+  if (!st) { box.append(el('p', 'banner', 'The startup lens needs NEAR_AI_API_KEY on this server. It is off here.')); return box; }
+  if (st.error) { box.append(el('p', 'small', `Startup lens did not return: ${st.error}`)); return box; }
+  const head = el('div', 'scoreline');
+  head.append(el('b', scoreClass(st.score), String(st.score)));
+  const side = el('div');
+  if (st.biggestRisk) side.append(el('p', '', `Biggest risk: ${st.biggestRisk}`));
+  if (st.fix) side.append(el('p', 'small', `Fix: ${st.fix}`));
+  head.append(side);
+  box.append(head);
+  const ul = el('ul', 'results');
+  for (const c of st.criteria || []) {
+    const li = el('li');
+    const top = el('div');
+    top.append(el('span', `tag ${c.score >= 4 ? 'good' : c.score >= 3 ? 'warn' : 'bad'}`, `${c.score}/5`), el('span', '', ` ${c.label}`));
+    li.append(top, el('p', 'small', c.reason || ''));
+    ul.append(li);
+  }
+  box.append(ul);
+  return box;
 }
 
 function paintIdea(r) {
   const box = $('idea-out');
   box.replaceChildren();
   const card = el('section', 'card');
-  card.append(el('p', 'small', `${num(r.total)} entries in this reading. Overlap is shared words in the project name.`));
-  if (r.clusters?.length) {
-    card.append(el('h2', '', 'Clusters this sentence touches'));
-    const chips = el('div', 'chips');
-    for (const c of r.clusters) chips.append(el('span', 'chip', `${c.label} · ${c.count}`));
-    card.append(chips);
-  }
-  card.append(el('h2', '', 'Similar names'));
-  if (!r.similar?.length) card.append(el('p', '', 'No project name shares a word with this sentence.'));
+  card.append(el('p', 'small', r.mode === 'ai'
+    ? `${num(r.total)} entries. Ranked by word rarity (BM25), then the top 20 were re-read by a model for the same problem, user, or mechanism. Matches under 40/100 are dropped.`
+    : `${num(r.total)} entries. Ranked by word rarity (BM25 over names and ${num(r.withDescriptions)} demo-post descriptions). Generic words like "agent" or "NEAR" barely count.${r.aiOn ? '' : ' AI re-ranking is off on this server.'}${r.rerankError ? ` Model re-rank failed: ${r.rerankError}.` : ''}`));
+  if (!r.specific) card.append(el('p', 'banner', 'This sentence is mostly generic words. Name the user, the problem, and how it works, and the matches get meaningful.'));
+  card.append(el('h2', '', 'Closest entries'));
+  if (!r.similar?.length) card.append(el('p', '', 'Nothing in the directory is close to this. That is a signal, not proof: the directory only shows names and demo posts.'));
   else {
     const ul = el('ul', 'results');
     for (const s of r.similar) {
       const li = el('li');
-      li.append(el('div', '', s.name));
-      li.append(el('p', 'small', `${(s.trackLabels || s.tracks || []).join(', ')} · shared: ${(s.shared || []).join(', ')}`));
+      const head = el('div');
+      const pctv = Math.round((s.score || 0) * 100);
+      head.append(el('span', `tag ${s.strength === 'strong' ? 'bad' : s.strength === 'partial' ? 'warn' : 'good'}`, `${pctv}`), el('span', '', ` ${s.name}`));
+      li.append(head);
+      const why = [];
+      if (s.reason) why.push(s.reason);
+      if (s.same?.length) why.push(`same ${s.same.join(', ')}`);
+      if (s.why?.phrases?.length) why.push(`phrases: ${s.why.phrases.join(', ')}`);
+      if (s.why?.terms?.length) why.push(`words: ${s.why.terms.join(', ')}`);
+      li.append(el('p', 'small', `${(s.trackLabels || []).join(', ')}${why.length ? ' · ' + why.join(' · ') : ''}`));
       ul.append(li);
     }
     card.append(ul);
   }
+  card.append(el('h2', '', 'Crowding by track'));
+  if (r.crowding?.length) {
+    const chips = el('div', 'chips');
+    for (const t of r.crowding) chips.append(el('span', 'chip', `${t.label} · ${t.similar} similar of ${num(t.entries)}`));
+    card.append(chips);
+  } else card.append(el('p', 'small', 'No track has a close match.'));
   card.append(el('h2', '', 'Quietest tracks'));
   const chips = el('div', 'chips');
   for (const t of r.quiet || []) chips.append(el('span', 'chip', `${t.label} · ${num(t.count)}`));
   card.append(chips);
-  if (r.ai?.note) {
-    card.append(el('h2', '', 'Model note'));
-    card.append(el('p', 'small', 'A model reading, not a count. The names above are the count.'));
-    card.append(el('p', '', r.ai.note));
-  } else card.append(el('p', 'small', 'Keyword overlap only. A model note is added when NEAR_AI_API_KEY is set.'));
+  card.append(startupBlock(r.startup, r.startupLabel, r.startupLink));
   box.append(card);
 }
 
@@ -365,7 +441,7 @@ function paintTriage(job) {
   const table = el('table');
   const head = el('thead');
   const hrow = el('tr');
-  for (const h of ['#', 'Repository', 'Why', 'Score', 'Flags']) hrow.append(el('th', '', h));
+  for (const h of ['#', 'Repository', 'Why', 'Content', 'Flags']) hrow.append(el('th', '', h));
   head.append(hrow);
   const tb = el('tbody');
   (job.items || []).forEach((item, i) => {
@@ -445,9 +521,10 @@ $('form').addEventListener('submit', async (e) => {
   try {
     const r = await api('/api/check', { repo, submission });
     $('score').textContent = r.score;
-    $('score').className = r.fails ? 'bad' : r.warns ? 'warn' : 'good';
-    $('verdict').textContent = r.verdict;
-    $('counts').textContent = `${r.fails} failure(s), ${r.warns} warning(s), ${r.results.length - r.fails - r.warns} passed. Directory size in this reading: ${num(r.directorySize)}.`;
+    $('score').className = scoreClass(r.score);
+    $('verdict').textContent = `${r.verdict} · content score`;
+    $('counts').textContent = `Rules check ${r.rulesScore}/100: ${r.fails} failure(s), ${r.warns} warning(s), ${r.results.length - r.fails - r.warns} passed. ${r.aiJudging ? 'AI judging is available on Where do I rank.' : 'AI judging is off on this server.'} Directory size in this reading: ${num(r.directorySize)}.`;
+    $('signals').replaceChildren(...signalList(r.quality).childNodes);
     $('results').replaceChildren(...resultList(r.results).childNodes);
     $('out').hidden = false;
     $('deep').hidden = false;
@@ -503,6 +580,7 @@ async function runDeep(depositAddress) {
     ? ` · ${sig.kind || 'unspecified'} signature${sig.signingAddress ? ' by ' + sig.signingAddress : ''}`
     : ' · no gateway signature returned';
   box.append(el('p', 'small mono', `model ${d.model} · chat ${d.chatId}` + sigNote));
+  box.append(startupBlock(d.startup, d.startupLabel, d.startupLink));
   $('review').replaceChildren(box);
 }
 
