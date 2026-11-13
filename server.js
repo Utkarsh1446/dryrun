@@ -8,6 +8,7 @@ import { rerankIdea, RERANK_KEEP, startupLens } from './lib/ai.js';
 import { assessRepo } from './lib/assess.js';
 import { createJudge } from './lib/judge.js';
 import { readmeOf } from './lib/quality.js';
+import { createAuditor, siteUrlFrom } from './lib/readiness.js';
 import { LABEL as STARTUP_LABEL, LINK as STARTUP_LINK } from './lib/rubrics/startup.js';
 import { buildIndex, DOMAIN_GENERIC, searchIdea, similarByTrack, stem, strength } from './lib/similar.js';
 import { checkDirectory, checkSubmission, score } from './lib/checks.js';
@@ -32,6 +33,9 @@ const pendingReviews = new Set();
 const jobs = new Map();
 
 const store = createStore(process.env.DRYRUN_DATA || join(root, 'data'));
+const audit = createAuditor();
+const siteFor = (snap, given) => (given && /^https?:\/\//.test(String(given)) ? String(given).trim() : siteUrlFrom(readmeOf(snap.files)?.text || ''));
+const readinessFor = async (url) => (url ? audit(url) : null);
 const judge = createJudge({ store, rubric: nearRulebook.judging });
 const scanner = process.env.DRYRUN_SCAN === '0' ? null : createScanner({
   judge,
@@ -120,7 +124,11 @@ async function runTriage(job, items) {
       const directoryNames = scanner ? scanner.namesForRepo(item.repo) : [];
       try {
         const snap = await snapshot(item.repo);
-        const { results, quality, ...summary } = await assessRepo(snap, { rulebook: nearRulebook });
+        const [{ results, quality, ...summary }, rd] = await Promise.all([
+          assessRepo(snap, { rulebook: nearRulebook }),
+          readinessFor(siteFor(snap)).catch(() => null),
+        ]);
+        summary.readiness = rd ? { url: rd.url, score: rd.score ?? null, error: rd.error || null, sections: (rd.sections || []).map(({ id, label, score }) => ({ id, label, score })) } : null;
         raw.push({ repo: item.repo, duplicate: item.duplicate, copies: item.copies, directoryNames, error: null, ...summary, content: quality.signals.map(({ id, label, points, weight }) => ({ id, label, points, weight })) });
       } catch (e) {
         raw.push({
@@ -152,16 +160,18 @@ const routes = {
   'GET /api/overview': async () => overviewFrom(field(), meta()),
   'GET /api/field': async () => publicField(field()),
   'POST /api/rank': async (req) => {
-    const { repo, tracks = [] } = await body(req);
+    const { repo, tracks = [], site } = await body(req);
     if (!validRepo(String(repo || '').trim())) throw Object.assign(new Error('Repository must be a public https://github.com/<owner>/<repo> URL'), { status: 400 });
     const url = canonRepo(String(repo).trim());
     const trackList = Array.isArray(tracks) ? [...new Set(tracks.map(String))].slice(0, 13) : [];
     const snap = await snapshot(url);
     const submission = trackList.length ? { tracks: trackList } : {};
     const extraResults = [...checkSubmission(submission), ...checkDirectory(directoryProjects(), { tracks: trackList })];
-    const [a, ai] = await Promise.all([
+    const siteUrl = siteFor(snap, site);
+    const [a, ai, readiness] = await Promise.all([
       assessRepo(snap, { rulebook: nearRulebook, extraResults }),
       judge.judge(url, snap),
+      readinessFor(siteUrl),
     ]);
     const { results, ...summary } = a;
     const current = field();
@@ -180,6 +190,7 @@ const routes = {
       },
       aiJudging: Boolean(process.env.NEAR_AI_API_KEY),
       judge: ai,
+      readiness,
       judgeCriteria: nearRulebook.judging.criteria.map(({ id, label }) => ({ id, label })),
       aiUsedForRank: false,
     };
@@ -256,8 +267,16 @@ const routes = {
   'POST /api/check': async (req) => {
     const { repo, submission = {} } = await body(req);
     const snap = await snapshot(repo);
-    const a = await assessRepo(snap, { rulebook: nearRulebook, extraResults: [...checkSubmission(submission), ...checkDirectory(directoryProjects(), submission)] });
-    return { repo: canonRepo(repo) || repo, ...a, rules: score(a.results), directorySize: directoryProjects().length, aiJudging: Boolean(process.env.NEAR_AI_API_KEY) };
+    const [a, readiness] = await Promise.all([
+      assessRepo(snap, { rulebook: nearRulebook, extraResults: [...checkSubmission(submission), ...checkDirectory(directoryProjects(), submission)] }),
+      readinessFor(siteFor(snap, submission?.siteUrl)),
+    ]);
+    return { repo: canonRepo(repo) || repo, ...a, readiness, rules: score(a.results), directorySize: directoryProjects().length, aiJudging: Boolean(process.env.NEAR_AI_API_KEY) };
+  },
+  'POST /api/readiness': async (req) => {
+    const { url } = await body(req);
+    if (typeof url !== 'string' || url.length > 500 || !/^https?:\/\//i.test(url.trim())) throw Object.assign(new Error('Give an http(s) URL'), { status: 400 });
+    return audit(url.trim());
   },
   'GET /api/tokens': async () => ({ priceUsd: meta().priceUsd, live: meta().paymentsLive, freeDeep: FREE_DEEP, tokens: await pay.tokens() }),
   'POST /api/quote': async (req) => {
@@ -283,11 +302,12 @@ const routes = {
       run: async () => {
         const snap = await snapshot(url);
         const readme = readmeOf(snap.files)?.text || '';
-        const [review, startup] = await Promise.all([
+        const [review, startup, readiness] = await Promise.all([
           deepReview(snap),
           startupLens(readme || [...snap.files.keys()].slice(0, 80).join('\n'), { kind: 'repo' }).catch(() => null),
+          readinessFor(siteFor(snap)),
         ]);
-        return { ...review, startup, startupLabel: STARTUP_LABEL, startupLink: STARTUP_LINK };
+        return { ...review, startup, startupLabel: STARTUP_LABEL, startupLink: STARTUP_LINK, readiness };
       },
     });
   },
@@ -300,6 +320,7 @@ function esc(s) {
 const FILES = {
   '/app.js': ['public/app.js', 'text/javascript; charset=utf-8'],
   '/app.css': ['public/app.css', 'text/css; charset=utf-8'],
+  '/og.png': ['public/og.png', 'image/png'],
 };
 
 createServer(async (req, res) => {
@@ -309,18 +330,32 @@ createServer(async (req, res) => {
     res.end(type === 'application/json' ? JSON.stringify(obj) : obj);
   };
   try {
-    const route = routes[`${req.method} ${url.pathname}`];
+    const method = req.method === 'HEAD' ? 'GET' : req.method;
+    const route = routes[`${method} ${url.pathname}`];
     if (route) return send(200, await route(req, url));
-    if (req.method === 'GET' && url.pathname === '/') {
+    if (method === 'GET' && url.pathname === '/') {
       const raw = await readFile(join(root, 'public/index.html'), 'utf8');
       const html = raw
         .replaceAll('__NAME__', esc(PRODUCT.name))
         .replaceAll('__TAGLINE__', esc(PRODUCT.tagline))
-        .replaceAll('__DISCLAIMER__', esc(PRODUCT.disclaimer));
+        .replaceAll('__DISCLAIMER__', esc(PRODUCT.disclaimer))
+        .replaceAll('__URL__', esc(PRODUCT.url))
+        .replaceAll('__REPO__', esc(PRODUCT.repo))
+        .replaceAll('__PRICE__', esc(String(meta().priceUsd)));
       return send(200, html, 'text/html; charset=utf-8');
     }
+    if (method === 'GET' && url.pathname === '/robots.txt') {
+      return send(200, `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${PRODUCT.url}/sitemap.xml\n`, 'text/plain; charset=utf-8');
+    }
+    if (method === 'GET' && url.pathname === '/sitemap.xml') {
+      return send(200, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${PRODUCT.url}/</loc><changefreq>hourly</changefreq></url>\n  <url><loc>${PRODUCT.url}/llms.txt</loc></url>\n</urlset>\n`, 'application/xml; charset=utf-8');
+    }
+    if (method === 'GET' && url.pathname === '/llms.txt') {
+      const raw = await readFile(join(root, 'public/llms.txt'), 'utf8');
+      return send(200, raw.replaceAll('__NAME__', PRODUCT.name).replaceAll('__TAGLINE__', PRODUCT.tagline).replaceAll('__DISCLAIMER__', PRODUCT.disclaimer).replaceAll('__URL__', PRODUCT.url).replaceAll('__REPO__', PRODUCT.repo).replaceAll('__PRICE__', String(meta().priceUsd)), 'text/plain; charset=utf-8');
+    }
     const file = FILES[url.pathname];
-    if (req.method === 'GET' && file) return send(200, await readFile(join(root, file[0])), file[1]);
+    if (method === 'GET' && file) return send(200, await readFile(join(root, file[0])), file[1]);
     send(404, { error: 'Not found' });
   } catch (e) {
     if (!e.status) console.error(e);

@@ -190,7 +190,7 @@ The pre-judge is now also a directory reader. See [INTELLIGENCE.md](INTELLIGENCE
 - Another hackathon is a directory adapter plus a rulebook (`lib/hackathons/adapter.js`, `lib/rulebook.js`). Colosseum is not connected and has no sample data.
 - Snapshots of directory size start when this process first reads the API. Older totals in section 2 (821, then the KuCoin note) are not replayed as a growth chart.
 
-## 9. Startup lens sources (13 Nov 2026)
+## 14. Startup lens sources (13 Nov 2026)
 
 What Garry Tan has published on evaluating ideas, verified this session [V]:
 
@@ -200,8 +200,27 @@ What Garry Tan has published on evaluating ideas, verified this session [V]:
 
 This is thin: a few short pieces, not a scoring rubric. It was combined with YC's published idea talks, which are not by Garry Tan: Jared Friedman's ["How to Get and Evaluate Startup Ideas"](https://www.youtube.com/watch?v=Th8JoIan4dg) and Kevin Hale's ["How to Evaluate Startup Ideas"](https://www.ycombinator.com/blog/startup-school-week-1-recap-kevin-hale-and-eric-migicovsky). The rubric is in [rubrics/startup.md](rubrics/startup.md). It is labelled "inspired by", with a link to the source. It is not an endorsement. The only quotes used are ones that appear verbatim in the sources.
 
-## 10. Content-first scoring and idea similarity (13 Nov 2026)
+## 15. Content-first scoring and idea similarity (13 Nov 2026)
 
 - The board, rank, free check, and triage now score **content**: README substance 22, real code vs scaffolding 25, NEAR used in code 15, tests with real assertions 10, commit spread 10, a demo link that opens 8. The rules check (file presence, license, secrets) is 10 of 100. A fixture of eight template files scores under 35 even though its rules check is above 60 (`test/quality.test.js`).
 - With `NEAR_AI_API_KEY`, an AI judge scores the repo on the criteria and rules in `lib/rulebook.js`. It cites `path:lines`, and any criterion without a valid citation is capped at 2. Results are cached per repo + commit SHA and capped at `DRYRUN_JUDGE_DAILY` calls a day (default 150). The AI judge is shown beside the score and does not move the board, so every row is compared on the same deterministic score.
 - Idea similarity is BM25 over names plus demo-post text, with corpus IDF, stopwords, and a 0.3× weight on domain-generic words (agent, ai, near, protocol, platform, …). Specific bigrams get a boost. A query has to carry a minimum amount of information before it can match strongly. With a key, the top 20 are re-read by `z-ai/glm-5.3-flash` for the same problem, user, or mechanism, and anything under 40/100 is dropped. Track crowding counts only these similar entries.
+
+## 16. AI readiness audit (13 Nov 2026)
+
+`lib/readiness.js` audits a project's live site the way AI crawlers and answer engines read it: plain HTTP, no JavaScript. It is used in Where do I rank (an optional site field, otherwise the first website link in the README that is not a video, X post, explorer or GitHub link), the free check (optional site field), the deep review, and the organizer triage ("AI ready" column). `POST /api/readiness {url}` audits any URL directly.
+
+Six sections, each check pass / warn / fail with a fix line; a section scores pass 1, warn 0.5, fail 0 (averaged), and the site score is the mean of the six.
+
+1. **Crawler access.** robots.txt parsed per RFC 9309 (most specific user-agent group, longest-match Allow/Disallow, `*` and `$`), checked for these 17 AI crawlers, exactly:
+   `GPTBot`, `OAI-SearchBot`, `ChatGPT-User`, `ClaudeBot`, `Claude-User`, `Claude-SearchBot`, `anthropic-ai`, `PerplexityBot`, `Perplexity-User`, `Google-Extended`, `Applebot-Extended`, `Bytespider`, `CCBot`, `Meta-ExternalAgent`, `Amazonbot`, `DuckAssistBot`, `cohere-ai`.
+   Live firewall test: the page is fetched with the published user-agent strings of ChatGPT-User, GPTBot, OAI-SearchBot, ClaudeBot and PerplexityBot and compared with a desktop Chrome user-agent; an HTTP error status (400+) the browser did not get, a challenge page (Cloudflare "Just a moment..." / "Attention Required", captcha, Incapsula) the browser did not get, or visible text under 30% of the browser's is a block. `noindex` in meta robots or `X-Robots-Tag` fails.
+2. **Readable content.** Words of visible text in the raw HTML (scripts, styles, templates removed): fail under 80, warn under 300. One h1; h2 structure. Real `<a href>` links (not `#`, `javascript:`). Images without alt text.
+3. **Structured data.** JSON-LD parses; Organization or WebSite; Product, SoftwareApplication or Offer; FAQPage. `@graph` and nested types are walked.
+4. **AI and crawl files.** `/llms.txt` (must be text, not HTML), `/sitemap.xml` (must contain `<urlset` or `<sitemapindex`), a `Sitemap:` line in robots.txt. A random probe path decides soft-404: an SPA that answers 200 text/html for every path has its llms.txt, sitemap and robots.txt counted as missing.
+5. **Metadata.** title, meta description, canonical, `<html lang>`, og:title/og:description/og:image, twitter:card. Scaffold titles fail (whole title, case-insensitive): "Vite + React/Vue/Svelte/Preact/Lit/TS" (with or without "+ TS"), "Vite App", "React App", "Create Next App", "Create React App", "Next.js App", "SvelteKit App", "Svelte App", "Vue App", "Nuxt App", "Remix App", "My App", "App", "New App", "Document", "Untitled", "Index", "Home", "Welcome to React", "Expo", "Astro", "Hello World".
+6. **Trust and answers.** HTTPS; time to first byte and total time (warn above 800 ms TTFB, fail above 2.5 s); pricing, about and contact reachable from plain `<a href>` links on the page (path or link text).
+
+Safety: stdlib `fetch` only, 10 s timeout per request, 1.5 MB body cap, no JavaScript execution, redirects followed by hand (max 6) with every hop re-checked. Host names are resolved first and refused when any address is loopback, private (RFC 1918), CGNAT, link-local (including 169.254.169.254 metadata), multicast/reserved, benchmarking (198.18/15) or IPv6 ULA/link-local/mapped-private; `localhost` and non-http(s) schemes are refused. (A sandbox whose DNS hands out fake 198.18/15 addresses can set `DRYRUN_ALLOW_FAKE_IP=1` locally; never on a public host.) Results are cached per URL for 30 minutes (300 entries).
+
+DryRun's own site, before and after this change, is recorded in the build report; the fixes were robots.txt with a Sitemap line, /llms.txt, /sitemap.xml, JSON-LD (WebSite, Organization, SoftwareApplication with Free and per-review Offers, FAQPage built from the on-page FAQ), canonical, Open Graph and Twitter tags with a 1200×630 image, one h1 per page, and About / Contact links in the footer.

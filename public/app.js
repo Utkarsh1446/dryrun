@@ -335,6 +335,46 @@ function judgeBlock(r) {
   return box;
 }
 
+function readinessBlock(rd, opts = {}) {
+  const box = el('div', 'ready');
+  box.append(el('h2', '', 'AI readiness'));
+  if (!rd) {
+    box.append(el('p', 'small', opts.empty || 'No live site found. Add a website link to the README (not a video or explorer link), or paste one in the site field.'));
+    return box;
+  }
+  if (rd.error) { box.append(el('p', 'small', `Could not audit ${rd.url || 'the site'}: ${rd.error}`)); return box; }
+  const head = el('div', 'scoreline');
+  head.append(el('b', scoreClass(rd.score), String(rd.score)));
+  const side = el('div');
+  const a = el('a', 'mono', rd.finalUrl || rd.url); a.href = rd.finalUrl || rd.url; a.target = '_blank'; a.rel = 'noopener nofollow';
+  side.append(a, el('p', 'small', 'Read without running JavaScript, the way AI crawlers and answer engines read it.' + (rd.cached ? ' Cached for 30 minutes.' : '')));
+  head.append(side);
+  box.append(head);
+  const grid = el('div', 'ready-grid');
+  for (const sec of rd.sections || []) {
+    const cell = el('details', 'ready-sec');
+    if (sec.checks.some((c) => c.status === 'fail')) cell.open = true;
+    const sum = el('summary');
+    const fails = sec.checks.filter((c) => c.status !== 'pass').length;
+    sum.append(el('span', '', sec.label), el('b', scoreClass(sec.score), String(sec.score)));
+    cell.append(sum);
+    const ul = el('ul', 'results');
+    for (const c of sec.checks) {
+      const li = el('li');
+      const top = el('div');
+      top.append(el('span', `tag ${c.status === 'fail' ? 'bad' : c.status === 'warn' ? 'warn' : 'good'}`, c.status), el('span', '', ` ${c.label}`));
+      li.append(top, el('p', 'small', c.detail || ''));
+      if (c.status !== 'pass' && c.fix) li.append(el('p', '', `Fix: ${c.fix}`));
+      ul.append(li);
+    }
+    cell.append(ul);
+    if (!fails) cell.append(el('p', 'small', 'All checks pass.'));
+    grid.append(cell);
+  }
+  box.append(grid);
+  return box;
+}
+
 function paintRank(r) {
   const box = $('rank-out');
   box.replaceChildren();
@@ -357,6 +397,7 @@ function paintRank(r) {
   }
   card.append(el('h2', '', 'What is inside'), signalList(r.quality));
   card.append(judgeBlock(r));
+  card.append(readinessBlock(r.readiness));
   card.append(el('h2', '', 'Fix these first'), resultList((r.fixes || []).slice(0, 10)));
   box.append(card);
 }
@@ -441,7 +482,7 @@ function paintTriage(job) {
   const table = el('table');
   const head = el('thead');
   const hrow = el('tr');
-  for (const h of ['#', 'Repository', 'Why', 'Content', 'Flags']) hrow.append(el('th', '', h));
+  for (const h of ['#', 'Repository', 'Why', 'Content', 'AI ready', 'Flags']) hrow.append(el('th', '', h));
   head.append(hrow);
   const tb = el('tbody');
   (job.items || []).forEach((item, i) => {
@@ -453,6 +494,10 @@ function paintTriage(job) {
     if (item.directoryNames?.length) why.push(`directory: ${item.directoryNames.slice(0, 3).join(', ')}`);
     tr.append(el('td', '', why.filter(Boolean).join(' · ')));
     tr.append(el('td', '', item.score == null ? '—' : String(item.score)));
+    const rd = item.readiness;
+    const rdCell = el('td', '', rd?.score != null ? String(rd.score) : rd?.error ? 'unreachable' : 'no site');
+    if (rd?.url) rdCell.title = rd.url + (rd.sections?.length ? '\n' + rd.sections.map((x) => `${x.label} ${x.score}`).join('\n') : '');
+    tr.append(rdCell);
     const flags = [];
     if (item.error) flags.push('will not clone');
     else for (const [k, v] of Object.entries(item.flags || {})) if (v === 'fail') flags.push(k);
@@ -476,7 +521,7 @@ $('rank-form').addEventListener('submit', async (e) => {
   $('rank-go').disabled = true;
   $('rank-go').textContent = 'Cloning and reading…';
   $('rank-out').replaceChildren(el('p', 'small', 'Cloning and reading the repository. This can take a minute. Nothing in it is executed.'));
-  try { paintRank(await api('/api/rank', { repo: $('rank-repo').value.trim(), tracks: checked('rank-tracks') })); }
+  try { paintRank(await api('/api/rank', { repo: $('rank-repo').value.trim(), site: $('rank-site').value.trim() || undefined, tracks: checked('rank-tracks') })); }
   catch (err) { show($('rank-err'), err.message); $('rank-out').replaceChildren(); }
   $('rank-go').disabled = false;
   $('rank-go').textContent = 'Score and place me';
@@ -517,7 +562,7 @@ $('form').addEventListener('submit', async (e) => {
   $('go').textContent = 'Cloning and checking…';
   const repo = $('repo').value.trim();
   const submission = { tracks: checked('tracks') };
-  for (const k of ['projectName', 'nearAddress', 'idea', 'demoText', 'demoUrl']) if ($(k).value.trim()) submission[k] = $(k).value.trim();
+  for (const k of ['projectName', 'nearAddress', 'idea', 'demoText', 'demoUrl', 'siteUrl']) if ($(k).value.trim()) submission[k] = $(k).value.trim();
   try {
     const r = await api('/api/check', { repo, submission });
     $('score').textContent = r.score;
@@ -526,6 +571,7 @@ $('form').addEventListener('submit', async (e) => {
     $('counts').textContent = `Rules check ${r.rulesScore}/100: ${r.fails} failure(s), ${r.warns} warning(s), ${r.results.length - r.fails - r.warns} passed. ${r.aiJudging ? 'AI judging is available on Where do I rank.' : 'AI judging is off on this server.'} Directory size in this reading: ${num(r.directorySize)}.`;
     $('signals').replaceChildren(...signalList(r.quality).childNodes);
     $('results').replaceChildren(...resultList(r.results).childNodes);
+    $('readiness').replaceChildren(readinessBlock(r.readiness));
     $('out').hidden = false;
     $('deep').hidden = false;
     $('review').replaceChildren();
@@ -581,6 +627,7 @@ async function runDeep(depositAddress) {
     : ' · no gateway signature returned';
   box.append(el('p', 'small mono', `model ${d.model} · chat ${d.chatId}` + sigNote));
   box.append(startupBlock(d.startup, d.startupLabel, d.startupLink));
+  box.append(readinessBlock(d.readiness));
   $('review').replaceChildren(box);
 }
 

@@ -1,0 +1,23 @@
+# __NAME__
+
+> __TAGLINE__ A live intelligence tool for NEAR HACKATHON (Nov 2026): it reads the public project directory, scores public repositories on their content, and ranks them on a speculative board. __DISCLAIMER__
+
+Site: __URL__
+Source: __REPO__ (MIT)
+
+## What it does
+- Free check: clones a public GitHub repo, reads it (never executes it), and scores the content: README substance, real code vs scaffolding, NEAR used in code, tests with real assertions, commit spread, and a demo link that opens. File presence and rule hygiene are 10 of 100 points.
+- Where do I rank: your content score placed against the entries scored so far. When the server has a NEAR AI Cloud key, an AI judge also scores the repo against the hackathon's criteria and cites file paths and lines.
+- Idea check: BM25 similarity over the directory's names and demo posts, with generic words down-weighted and a model re-rank. Track crowding is counted from similar entries. Includes a startup lens inspired by Garry Tan's published questions (not an endorsement).
+- AI readiness audit: checks a project's live site for AI crawler access, readable HTML, structured data, llms.txt and sitemap, metadata, and trust signals.
+- Organizer triage: up to 20 repositories per run, ordered by what fails first.
+
+## Pricing
+- Free: every check above.
+- Deep review: $__PRICE__ per repository, paid in any supported token through NEAR Intents 1Click and settled in USDC on NEAR. A model on NEAR AI Cloud checks README claims against the code.
+- Larger organizer runs: coming soon.
+
+## Links
+- [Pricing](__URL__/#pricing)
+- [About and source](__REPO__#readme)
+- [Contact (GitHub issues)](__REPO__/issues)

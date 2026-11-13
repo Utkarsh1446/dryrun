@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__NAME__ — __TAGLINE__</title>
 <meta name="description" content="__TAGLINE__ __DISCLAIMER__">
+<link rel="canonical" href="__URL__/">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="__NAME__">
+<meta property="og:title" content="__NAME__ — __TAGLINE__">
+<meta property="og:description" content="Live hackathon intelligence for NEAR HACKATHON: content scores for public repos, a speculative board, idea similarity, and AI readiness audits.">
+<meta property="og:url" content="__URL__/">
+<meta property="og:image" content="__URL__/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="__NAME__ — __TAGLINE__">
+<meta name="twitter:description" content="Content scores for public repos, a speculative board, idea similarity, and AI readiness audits.">
+<meta name="twitter:image" content="__URL__/og.png">
+<link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "__URL__/#website", "name": "__NAME__", "url": "__URL__/", "description": "__TAGLINE__"}, {"@type": "Organization", "@id": "__URL__/#org", "name": "__NAME__", "url": "__URL__/", "sameAs": ["__REPO__"]}, {"@type": "SoftwareApplication", "name": "__NAME__", "applicationCategory": "DeveloperApplication", "operatingSystem": "Web", "url": "__URL__/", "description": "Live hackathon intelligence: content scoring of public repositories, a speculative leaderboard, idea similarity, AI readiness audits, and a paid deep review.", "publisher": {"@id": "__URL__/#org"}, "offers": [{"@type": "Offer", "name": "Free checks", "price": "0", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Deep review (per repository, settled in USDC on NEAR)", "price": "__PRICE__", "priceCurrency": "USD"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is the leaderboard the official result?", "acceptedAnswer": {"@type": "Answer", "text": "No. It is a reading of the published rules against the public repositories this process could match and score. Judges decide. The order will move as more repositories are scored."}}, {"@type": "Question", "name": "Do you run the code in a repository?", "acceptedAnswer": {"@type": "Answer", "text": "No. A repository is cloned, read, and deleted. \"Commands resolve\" means the scripts and files named in the README exist. It does not mean they succeed. Symlinks are skipped. Secret values are not printed."}}, {"@type": "Question", "name": "What does a match mean?", "acceptedAnswer": {"@type": "Answer", "text": "High confidence means the first GitHub link in that project's public demo post. That link can still be a dependency rather than the submission. Medium confidence means a GitHub name search cleared a conservative threshold, and it can be the wrong repository. Entries with no match are left unscored."}}, {"@type": "Question", "name": "What if my repository is still private?", "acceptedAnswer": {"@type": "Answer", "text": "It cannot be scored, and the screeners cannot open it either. Make it public, then paste the link."}}, {"@type": "Question", "name": "What does the deep review cost, and what if there is no API key?", "acceptedAnswer": {"@type": "Answer", "text": "The price on this page comes from the server configuration. Without NEAR_AI_API_KEY the free checks, the board, rank, and the idea check still run. The model is not called. A gateway signature, when the API returns one, is shown with the kind the API sends. It is not described as an enclave attestation."}}]}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
@@ -214,7 +228,7 @@
       <div class="wrap">
         <div class="vhead">
           <p class="eyebrow"><span class="live" aria-hidden="true"></span>Speculative board</p>
-          <h1 class="d1"><span>The field,</span><span class="grad">as far as public pages go.</span></h1>
+          <h2 class="d1"><span>The field,</span><span class="grad">as far as public pages go.</span></h2>
           <p class="banner" id="field-banner">__DISCLAIMER__ The order is the deterministic rule score. A model score, when a key is configured, is shown beside a row and does not move it.</p>
           <p class="small" id="field-scan"></p>
           <p class="small" id="field-coverage"></p>
@@ -256,12 +270,14 @@
       <div class="wrap wrap-n">
         <div class="vhead">
           <p class="eyebrow">Where do I rank</p>
-          <h1 class="d1"><span>Your score,</span><span class="grad">against the board right now.</span></h1>
+          <h2 class="d1"><span>Your score,</span><span class="grad">against the board right now.</span></h2>
           <p class="banner">__DISCLAIMER__ The rank counts only repositories that have been matched and scored. It is not a rank of every entry in the directory.</p>
         </div>
         <form id="rank-form" class="card form">
           <label for="rank-repo">Public GitHub repository</label>
           <input id="rank-repo" type="url" required placeholder="https://github.com/you/project" autocomplete="off">
+          <label for="rank-site">Live site or demo URL <small>(optional; otherwise taken from the README)</small></label>
+          <input id="rank-site" type="url" placeholder="https://your-project.app" autocomplete="off">
           <label>Tracks <small>(optional)</small></label>
           <div class="tracks" id="rank-tracks"></div>
           <button class="btn btn-dark btn-w" id="rank-go" type="submit">Score and place me</button>
@@ -278,7 +294,7 @@
       <div class="wrap wrap-n">
         <div class="vhead">
           <p class="eyebrow">Idea check</p>
-          <h1 class="d1"><span>Say it in a sentence.</span><span class="grad">See who is already there.</span></h1>
+          <h2 class="d1"><span>Say it in a sentence.</span><span class="grad">See who is already there.</span></h2>
           <p class="lead">Matched on rare words and phrases over project names and demo posts, with generic words like "agent" or "NEAR" down-weighted, then re-read by a model for the same problem, user, or mechanism. Plus a startup lens inspired by Garry Tan's published questions.</p>
         </div>
         <form id="idea-form" class="card form">
@@ -298,7 +314,7 @@
       <div class="wrap wrap-n">
         <div class="vhead">
           <p class="eyebrow">Organizers and judges</p>
-          <h1 class="d1"><span>A triage queue</span><span class="grad">for a list of repositories.</span></h1>
+          <h2 class="d1"><span>A triage queue</span><span class="grad">for a list of repositories.</span></h2>
           <p class="lead">Paste public GitHub URLs. Each one is cloned, read, and deleted. The queue puts "will not clone", secrets, a missing license, README commands that do not resolve, and out-of-window history first, then duplicates. Twenty repositories per run in this build.</p>
           <p class="banner">__DISCLAIMER__ This is the same rule list as the free check. It is not a judging decision.</p>
         </div>
@@ -320,7 +336,7 @@
       <div class="wrap wrap-n">
         <div class="vhead">
           <p class="eyebrow">Free check</p>
-          <h1 class="d1"><span>Rehearse</span><span class="grad">the submission.</span></h1>
+          <h2 class="d1"><span>Rehearse</span><span class="grad">the submission.</span></h2>
           <p class="lead">Paste a public repository. __NAME__ reads it the way the automated screen will, and stops before anything is executed.</p>
         </div>
         <form id="form" class="card form">
@@ -340,6 +356,8 @@
             <textarea id="demoText"></textarea>
             <label for="demoUrl">Demo post URL <small>(if already live)</small></label>
             <input id="demoUrl" type="url">
+            <label for="siteUrl">Live site or demo URL <small>(for the AI readiness audit)</small></label>
+            <input id="siteUrl" type="url" placeholder="https://your-project.app">
           </details>
           <button class="btn btn-dark btn-w" id="go" type="submit">Run free check</button>
           <p class="err" id="err" role="alert" hidden></p>
@@ -350,6 +368,7 @@
           <ul class="sigs" id="signals"></ul>
           <h2>Rules check</h2>
           <ul class="results" id="results"></ul>
+          <div id="readiness"></div>
         </section>
         <section id="deep" class="card deep" hidden>
           <span class="badge">Deep review</span>
@@ -381,7 +400,7 @@
         <p class="cap">__DISCLAIMER__</p>
       </div>
       <div><h4>Builders</h4><ul><li><a href="#check">Free check</a></li><li><a href="#rank">Where do I rank</a></li><li><a href="#idea">Idea check</a></li><li><a href="#field">The field</a></li></ul></div>
-      <div><h4>Organizers</h4><ul><li><a href="#organizers">Triage queue</a></li><li><a href="#pricing">Pricing</a></li><li><a href="https://github.com/Utkarsh1446/dryrun" rel="noopener">Source on GitHub</a></li></ul></div>
+      <div><h4>Organizers</h4><ul><li><a href="#organizers">Triage queue</a></li><li><a href="#pricing">Pricing</a></li><li><a href="__REPO__#readme" rel="noopener">About</a></li><li><a href="__REPO__/issues" rel="noopener">Contact</a></li><li><a href="/llms.txt">llms.txt</a></li></ul></div>
       <div><h4>Built on</h4><ul><li><a href="https://docs.near-intents.org/" rel="noopener">NEAR Intents 1Click</a></li><li><a href="https://cloud.near.ai/" rel="noopener">NEAR AI Cloud</a></li><li><a href="https://nearhackathon.com/" rel="noopener">NEAR HACKATHON directory</a></li></ul></div>
     </div>
     <div class="foot-x"><span>__NAME__. Not affiliated with NEAR or the hackathon organizers. MIT license.</span><span>Payments use NEAR Intents 1Click. The optional model read uses NEAR AI Cloud.</span></div>
