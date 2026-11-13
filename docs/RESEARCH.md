@@ -179,3 +179,13 @@ Target [E]: 100 free checks, 3–10 paid reviews. This is a guess, not a forecas
 4. The X demo-post text could not be fetched for competitors, so competitor descriptions come from names, tracks and a few repos.
 5. Whether organizers see a pre-judge as welcome or as gaming the screen.
 6. Unauthenticated use of the hackathon's directory API and 1Click may be rate-limited under load.
+
+## 13. Field reader (same day, later)
+
+The pre-judge is now also a directory reader. See [INTELLIGENCE.md](INTELLIGENCE.md).
+
+- The public directory still exposes name, tracks, and demo-post URL only. Repository URLs are recovered from the demo post (Twitter's public syndication endpoint, fxtwitter only as a fallback) and, failing that, a conservative GitHub name search. Both are labeled with a confidence. [V] the directory shape; matching coverage is whatever a given run of `lib/scan.js` has finished, and is printed by the app from that run. It is not a fixed percentage.
+- The board ranks matched repos by the deterministic rule score in `lib/checks.js`. Tied scores share a rank. An optional NEAR AI Cloud criteria score does not move the order and is skipped when `NEAR_AI_API_KEY` is unset.
+- NEAR AI model calls, corrected the same day from a live check by the owner (this workspace did not repeat that call): `zai-org/GLM-5.1-FP8` is a deprecated alias served as `z-ai/glm-5.3-flash`. Defaults are now `z-ai/glm-5.3` for the paid review and `z-ai/glm-5.3-flash` for criteria and idea notes. A short `max_tokens` returned `message.content: null`, `finish_reason: length`, and the text in `reasoning_content`. `GET /v1/signature/{id}?model=<model>&signing_algo=ecdsa` returned `signature_kind: gateway`. That signature is not described here as an enclave or model attestation. `npm run smoke:ai` is the live check.
+- Another hackathon is a directory adapter plus a rulebook (`lib/hackathons/adapter.js`, `lib/rulebook.js`). Colosseum is not connected and has no sample data.
+- Snapshots of directory size start when this process first reads the API. Older totals in section 2 (821, then the KuCoin note) are not replayed as a growth chart.
