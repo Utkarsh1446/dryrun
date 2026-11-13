@@ -1,0 +1,12 @@
+# Render's free plan sleeps after 15 idle minutes and loses the in-memory directory scan.
+# This pings the public demo every 10 minutes so judges never hit a cold start.
+name: keep-alive
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsS -m 60 -o /dev/null https://dryrun-pfgy.onrender.com/api/overview || true
