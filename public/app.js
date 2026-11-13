@@ -662,6 +662,7 @@ $('form').addEventListener('submit', async (e) => {
     $('results').replaceChildren(...resultList(r.results).childNodes);
     $('readiness').replaceChildren(readinessBlock(r.readiness));
     $('out').hidden = false;
+    $('check-empty').hidden = true;
     $('deep').hidden = false;
     $('review').replaceChildren();
     $('payinfo').hidden = true;
