@@ -19,7 +19,7 @@
 <meta name="twitter:image" content="__URL__/og.png">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="alternate" type="text/plain" title="llms.txt" href="/llms.txt">
-<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "__URL__/#website", "name": "__NAME__", "url": "__URL__/", "description": "__TAGLINE__"}, {"@type": "Organization", "@id": "__URL__/#org", "name": "__NAME__", "url": "__URL__/", "sameAs": ["__REPO__"]}, {"@type": "SoftwareApplication", "name": "__NAME__", "applicationCategory": "DeveloperApplication", "operatingSystem": "Web", "url": "__URL__/", "description": "Live hackathon intelligence: content scoring of public repositories, a speculative leaderboard, idea similarity, AI readiness audits, and a paid deep review.", "publisher": {"@id": "__URL__/#org"}, "offers": [{"@type": "Offer", "name": "Free checks", "price": "0", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Deep review (per repository, settled in USDC on NEAR)", "price": "__PRICE__", "priceCurrency": "USD"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is the leaderboard the official result?", "acceptedAnswer": {"@type": "Answer", "text": "No. It is a reading of the published rules against the public repositories this process could match and score. Judges decide. The order will move as more repositories are scored."}}, {"@type": "Question", "name": "Do you run the code in a repository?", "acceptedAnswer": {"@type": "Answer", "text": "No. A repository is cloned, read, and deleted. \"Commands resolve\" means the scripts and files named in the README exist. It does not mean they succeed. Symlinks are skipped. Secret values are not printed."}}, {"@type": "Question", "name": "What does a match mean?", "acceptedAnswer": {"@type": "Answer", "text": "High confidence means the first GitHub link in that project's public demo post. That link can still be a dependency rather than the submission. Medium confidence means a GitHub name search cleared a conservative threshold, and it can be the wrong repository. Entries with no match are left unscored."}}, {"@type": "Question", "name": "What if my repository is still private?", "acceptedAnswer": {"@type": "Answer", "text": "It cannot be scored, and the screeners cannot open it either. Make it public, then paste the link."}}, {"@type": "Question", "name": "What does the deep review cost, and what if there is no API key?", "acceptedAnswer": {"@type": "Answer", "text": "The price on this page comes from the server configuration. Without NEAR_AI_API_KEY the free checks, the board, rank, and the idea check still run. The model is not called. A gateway signature, when the API returns one, is shown with the kind the API sends. It is not described as an enclave attestation."}}]}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "__URL__/#website", "name": "__NAME__", "url": "__URL__/", "description": "__TAGLINE__"}, {"@type": "Organization", "@id": "__URL__/#org", "name": "__NAME__", "url": "__URL__/", "sameAs": ["__REPO__"]}, {"@type": "SoftwareApplication", "name": "__NAME__", "applicationCategory": "DeveloperApplication", "operatingSystem": "Web", "url": "__URL__/", "description": "Live hackathon intelligence: content scoring of public repositories, a speculative leaderboard, idea similarity, AI readiness audits, and a paid deep review.", "publisher": {"@id": "__URL__/#org"}, "offers": [{"@type": "Offer", "name": "Free checks", "price": "0", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Deep review (per repository, NEAR Intents dry quote, no deposit)", "price": "__PRICE__", "priceCurrency": "USD"}]}, {"@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is the leaderboard the official result?", "acceptedAnswer": {"@type": "Answer", "text": "No. It is an estimate. Team and repository names are anonymised unless the view asks for them. Judges decide. The order will move as more repositories are scored."}}, {"@type": "Question", "name": "Do you run the code in a repository?", "acceptedAnswer": {"@type": "Answer", "text": "No. A repository is cloned, read, and deleted. \"Commands resolve\" means the scripts and files named in the README exist. It does not mean they succeed. Symlinks are skipped. Secret values are not printed."}}, {"@type": "Question", "name": "What does a match mean?", "acceptedAnswer": {"@type": "Answer", "text": "High confidence means the first GitHub link in that project's public demo post. That link can still be a dependency rather than the submission. Medium confidence means a GitHub name search cleared a conservative threshold, and it can be the wrong repository. Entries with no match are left unscored."}}, {"@type": "Question", "name": "What if my repository is still private?", "acceptedAnswer": {"@type": "Answer", "text": "It cannot be scored, and the screeners cannot open it either. Make it public, then paste the link."}}, {"@type": "Question", "name": "What does the deep review cost, and what if there is no API key?", "acceptedAnswer": {"@type": "Answer", "text": "The price on this page comes from the server configuration. The quote is always a NEAR Intents 1Click dry quote, so no deposit address is issued and no funds move. Without NEAR_AI_API_KEY the model is not called and the page says so. The dry quote is still recorded on the testnet receipt contract. A gateway signature, when a live call returns one, is shown with the kind the API sends. It is not an enclave attestation."}}]}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..900&family=Inter:wght@400;500;600;700&family=Fragment+Mono&display=swap">
@@ -32,6 +32,7 @@
     <a class="logo" href="#home"><i class="mark" aria-hidden="true"></i>__NAME__</a>
     <nav class="nav-links" aria-label="Main">
       <a href="#field" data-go="field">The field</a>
+      <a href="/verify">Verify</a>
       <a href="#rank" data-go="rank">Where do I rank</a>
       <a href="#idea" data-go="idea">Idea check</a>
       <a href="#organizers" data-go="organizers">Organizers</a>
@@ -57,7 +58,8 @@
         <i class="cube c-violet" aria-hidden="true"></i><i class="cube c-cyan" aria-hidden="true"></i><i class="cube c-yellow" aria-hidden="true"></i>
         <div class="panel-live">
           <div class="pane">
-            <h3 class="pane-h">Speculative board <span class="livetag">live</span></h3>
+            <h3 class="pane-h">Estimate <span class="livetag">not official</span></h3>
+            <p class="small" id="home-estimate">Team and repository names are anonymised. This is not a judge ranking.</p>
             <ol class="mini-board" id="home-board"><li class="small">Waiting for scored repositories.</li></ol>
           </div>
           <div class="pane">
@@ -153,7 +155,7 @@
         <div class="center head">
           <p class="eyebrow"><span class="live" aria-hidden="true"></span>Pricing</p>
           <h2 class="d1">Free to check.<br>Pay per repo<br>for depth.</h2>
-          <p class="lead">Every builder tool on this page is free. The deep review is a paid read of one repository, settled in USDC on NEAR through NEAR Intents.</p>
+          <p class="lead">Every builder tool on this page is free. The deep review is priced with a NEAR Intents 1Click dry quote. This build does not take a deposit.</p>
         </div>
         <div class="plans">
           <article class="plan">
@@ -177,7 +179,7 @@
             <div class="plan-top p-orange">
               <h3>Deep review <span class="badge">Most useful</span></h3>
               <div class="price"><b id="price-deep">…</b><span>per repository</span></div>
-              <div class="billed">Paid from any supported token via NEAR Intents</div>
+              <div class="billed">Dry 1Click quote, recorded on testnet</div>
               <a class="btn btn-ink btn-w" href="#check">Run a deep review</a>
             </div>
             <ul>
@@ -186,9 +188,9 @@
               <li>Startup lens inspired by Garry Tan's published questions</li>
               <li>Claims in the README checked against the tree</li>
               <li>A prediction of where a fresh clone fails</li>
-              <li>One payment, one repository, no wallet connection</li>
+              <li>The dry quote and the review hash are one testnet receipt</li>
             </ul>
-            <p class="fine">Counted only when the payment settles in USDC on NEAR.</p>
+            <p class="fine">dry: true only. No deposit address and no funds move. Without NEAR_AI_API_KEY the model is not called; the quote is still recorded.</p>
           </article>
           <article class="plan" id="contact">
             <div class="plan-top p-lilac">
@@ -217,7 +219,7 @@
         <div class="qas">
           <details class="qa" open>
             <summary>Is the leaderboard the official result?<i class="pm" aria-hidden="true"></i></summary>
-            <p>No. It is a reading of the published rules against the public repositories this process could match and score. Judges decide. The order will move as more repositories are scored.</p>
+            <p>No. It is an estimate. Team and repository names are anonymised unless you choose to show them. Judges decide. The order will move as more repositories are scored.</p>
           </details>
           <details class="qa">
             <summary>Do you run the code in a repository?<i class="pm" aria-hidden="true"></i></summary>
@@ -233,7 +235,7 @@
           </details>
           <details class="qa">
             <summary>What does the deep review cost, and what if there is no API key?<i class="pm" aria-hidden="true"></i></summary>
-            <p>The price on this page comes from the server configuration. Without NEAR_AI_API_KEY the free checks, the board, rank, and the idea check still run. The model is not called. A gateway signature, when the API returns one, is shown with the kind the API sends. It is not described as an enclave attestation.</p>
+            <p>The price on this page comes from the server configuration. The quote is always dry: true, so nothing is deposited. Without NEAR_AI_API_KEY the model is not called and the page says so. A gateway signature, when a live call returns one, is shown with the kind the API sends. It is not an enclave attestation.</p>
           </details>
         </div>
       </div>
@@ -243,9 +245,9 @@
     <div class="view">
       <div class="wrap">
         <div class="vhead">
-          <p class="eyebrow"><span class="live" aria-hidden="true"></span>Speculative board</p>
+          <p class="eyebrow"><span class="live" aria-hidden="true"></span>Estimate</p>
           <h2 class="d1">The field, as far as<br>public pages go</h2>
-          <p class="banner" id="field-banner">__DISCLAIMER__ The order is the content score. A model score, when a key is configured, is shown beside a row and does not move it.</p>
+          <p class="banner" id="field-banner">Estimate only. This is not an official ranking and not a judge score. Team and repository names are anonymised.</p>
           <p class="small" id="field-scan"></p>
           <p class="small" id="field-coverage"></p>
         </div>
@@ -258,20 +260,21 @@
           </div>
           <div class="panel">
             <h2 class="ph">Name clusters</h2>
-            <p class="small">A cluster is a distinctive word shared by at least three names, and not so common that it describes the whole directory. Same-name groups ignore spaces and camel case.</p>
+            <p class="small">A cluster is a distinctive word shared by at least three public directory names. These names are the public listing. The leaderboard below is a separate estimate and hides matched repositories unless you ask.</p>
             <div id="field-clusters"></div>
           </div>
         </div>
         <div class="panel">
-          <h2 class="ph">Leaderboard</h2>
+          <h2 class="ph">Estimate</h2>
           <div class="toolbar">
             <div><label for="field-track">Track</label><select id="field-track"><option value="">All scored</option></select></div>
-            <div class="grow"><label for="field-q">Search</label><input id="field-q" placeholder="Project or repository"></div>
+            <div class="grow"><label for="field-q">Search</label><input id="field-q" placeholder="Alias"></div>
+            <div><button class="btn btn-grey btn-s" id="field-names" type="button">Show team names</button></div>
           </div>
           <p class="small" id="field-count"></p>
           <div class="table-wrap">
             <table>
-              <caption class="small">Speculative ranks among scored repositories only. Tied scores share a rank.</caption>
+              <caption class="small">Estimate among scored repositories only. Tied scores share a rank. Names are anonymised until you show them.</caption>
               <thead><tr><th>Rank</th><th>Project</th><th>Tracks</th><th>Score</th><th>Fails</th><th>Match</th><th>Repository</th></tr></thead>
               <tbody id="field-body"></tbody>
             </table>
@@ -398,14 +401,14 @@
             </section>
             <section id="deep" class="deep" hidden>
               <span class="badge">Deep review</span>
-              <h2 class="dh"><span id="price"></span>, pay with any token</h2>
-              <p class="small">A model on NEAR AI Cloud reads the README, the file tree, and the source, and checks claims against the code. The repository text is fenced as untrusted. Pay from any chain through NEAR Intents. No wallet connection.</p>
+              <h2 class="dh"><span id="price"></span>, dry quote only</h2>
+              <p class="small" id="deep-note">A model on NEAR AI Cloud reads the README against the code only when NEAR_AI_API_KEY is set. Otherwise the model is not called. Either way the quote is a 1Click dry quote (dry: true). Confirming it writes the quote hash and the result hash to the NEAR testnet contract. No deposit address. No funds move.</p>
               <div id="payform">
                 <div class="split">
                   <div><label for="asset">Pay with</label><select id="asset"></select></div>
                   <div><label for="refund">Your address on that chain <small>(for refunds)</small></label><input id="refund" autocomplete="off"></div>
                 </div>
-                <button class="btn btn-ink" id="quote" type="button">Get payment address</button>
+                <button class="btn btn-ink" id="quote" type="button">Get a dry quote</button>
               </div>
               <div class="pay" id="payinfo" hidden></div>
               <p class="err" id="perr" role="alert" hidden></p>
@@ -426,7 +429,7 @@
     <div class="foot-g">
       <div><h4>Builders</h4><ul><li><a href="#check">Free check</a></li><li><a href="#rank">Where do I rank</a></li><li><a href="#idea">Idea check</a></li><li><a href="#field">The field</a></li></ul></div>
       <div><h4>Organizers</h4><ul><li><a href="#organizers">Triage queue</a></li><li><a href="#pricing">Pricing</a></li></ul></div>
-      <div><h4>About</h4><ul><li><a href="__REPO__#readme" rel="noopener">About</a></li><li><a href="__REPO__" rel="noopener">Source on GitHub</a></li><li><a href="/llms.txt">llms.txt</a></li></ul></div>
+      <div><h4>About</h4><ul><li><a href="__REPO__#readme" rel="noopener">About</a></li><li><a href="__REPO__" rel="noopener">Source on GitHub</a></li><li><a href="/verify">Verify a receipt</a></li><li><a href="/llms.txt">llms.txt</a></li></ul></div>
       <div><h4>Built on</h4><ul><li><a href="https://docs.near-intents.org/" rel="noopener">NEAR Intents 1Click</a></li><li><a href="https://cloud.near.ai/" rel="noopener">NEAR AI Cloud</a></li><li><a href="https://nearhackathon.com/" rel="noopener">NEAR HACKATHON directory</a></li></ul></div>
       <div><h4>Get in touch</h4><ul><li><a href="__REPO__/issues" rel="noopener">Contact (GitHub issues)</a></li></ul></div>
     </div>

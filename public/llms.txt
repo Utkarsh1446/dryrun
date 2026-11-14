@@ -14,7 +14,7 @@ Source: __REPO__ (MIT)
 
 ## Pricing
 - Free: every check above.
-- Deep review: $__PRICE__ per repository, paid in any supported token through NEAR Intents 1Click and settled in USDC on NEAR. A model on NEAR AI Cloud checks README claims against the code.
+- Deep review: $__PRICE__ per repository, priced with a NEAR Intents 1Click dry quote (dry: true). No deposit address is issued and no funds move. Confirming the quote writes it to a NEAR testnet receipt. A model on NEAR AI Cloud checks README claims only when NEAR_AI_API_KEY is set. Without that key the model is not called.
 - Larger organizer runs: coming soon.
 
 ## Links

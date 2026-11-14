@@ -361,6 +361,17 @@ td .bar { min-width: 80px; margin-top: 6px; }
 .deep .btn-ink { background: var(--cyan); color: var(--ink); margin-top: 18px; }
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .pay { margin-top: 16px; background: #0D403F; border-radius: 12px; padding: 16px; display: grid; gap: 6px; word-break: break-all; }
+.receipt { margin-top: 16px; background: #fff; color: var(--ink); border-radius: 12px; padding: 16px; display: grid; gap: 6px; }
+.receipt h3 { font-family: var(--disp); font-weight: 800; font-stretch: 110%; text-transform: uppercase; letter-spacing: -.03em; font-size: 18px; }
+.receipt p { overflow-wrap: anywhere; }
+.receipt a { color: var(--indigo); font-weight: 600; }
+.receipt a + a { margin-left: 14px; }
+.deep .receipt { box-shadow: none; }
+.verify-page { min-height: 100vh; padding: 32px 0 64px; }
+.verify-card { max-width: 760px; margin: 28px auto 0; background: #fff; border-radius: 18px; padding: 22px; box-shadow: var(--sh); }
+.verify-card label { display: block; font-weight: 600; margin: 12px 0 6px; }
+.verify-card input { width: 100%; border: 1.5px solid var(--line); background: var(--bg); border-radius: 10px; padding: 12px 14px; }
+.verify-card .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 #review { margin-top: 18px; }
 #review .results { background: #fff; color: var(--ink); }
 #review h3 { margin: 16px 0 8px; font-size: 15px; }

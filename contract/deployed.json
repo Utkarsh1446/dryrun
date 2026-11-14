@@ -1,0 +1,33 @@
+{
+  "network": "testnet",
+  "contractId": "dryrun-b30f-61f4e3.testnet",
+  "deployTx": "DVAX8HoKotYidKe8JHRGVRfjp9LkzrbE5boPcv8dykYn",
+  "codeHash": "5XHHPGU93Li55soSDSFr6y9bGBav3MjM1wfZBU5e69Vw",
+  "rpc": "https://rpc.testnet.near.org",
+  "explorerAccount": "https://explorer.testnet.near.org/accounts/dryrun-b30f-61f4e3.testnet",
+  "explorerTx": "https://explorer.testnet.near.org/transactions/DVAX8HoKotYidKe8JHRGVRfjp9LkzrbE5boPcv8dykYn",
+  "receipts": [
+    {
+      "id": 1,
+      "kind": "check",
+      "tx": "4dBZ5SxvdfrLLP3W8ZQodWxFcpbLRaGKdS5gCJ85XEw4",
+      "explorerTx": "https://explorer.testnet.near.org/transactions/4dBZ5SxvdfrLLP3W8ZQodWxFcpbLRaGKdS5gCJ85XEw4",
+      "repo": "https://github.com/near-examples/rust-status-message",
+      "commit": "dca9bf2c080345c7efe8dc2ff13f9b4efd45065e",
+      "resultHash": "611e27bd71b1e24977bb77bea1ff3ec00fdad8a14b2c1b37b0032c926e2fcf54",
+      "checker": "0.3.0"
+    },
+    {
+      "id": 2,
+      "kind": "deep",
+      "tx": "6yp9MRUiHFRWaGKDNgSmUbPenTSD6msUKLkbKMT2yMVC",
+      "explorerTx": "https://explorer.testnet.near.org/transactions/6yp9MRUiHFRWaGKDNgSmUbPenTSD6msUKLkbKMT2yMVC",
+      "repo": "https://github.com/near-examples/rust-status-message",
+      "commit": "dca9bf2c080345c7efe8dc2ff13f9b4efd45065e",
+      "resultHash": "d159a810dce561377fae686ac6e3ae8dcb362ca675f6a7cb93e626798ef6aa86",
+      "quoteHash": "3f5788199621ef04ec2713e9139a84403d888e1d48c0b8577501fb2864dd7aa6",
+      "checker": "0.3.0",
+      "note": "1Click quote was dry:true. NEAR_AI_API_KEY was not set, so the model was not called. The receipt stores the quote hash."
+    }
+  ]
+}

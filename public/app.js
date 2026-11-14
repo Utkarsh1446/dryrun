@@ -5,10 +5,11 @@ const num = (v) => v == null || Number.isNaN(v) ? '…' : Number(v).toLocaleStri
 const when = (iso) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(); };
 const pct = (share) => `${Math.round((share || 0) * 100)}%`;
 
-const state = { overview: null, field: null, track: '', q: '', show: 40, poll: null, triage: null };
+const state = { overview: null, field: null, track: '', q: '', show: 40, poll: null, triage: null, showNames: false };
+const API_BASE = window.DRYRUN_API || '';
 
 async function api(path, body) {
-  const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
+  const r = await fetch(API_BASE + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
   return j;
@@ -51,9 +52,7 @@ function paintHome(o) {
     ? `Quietest tracks in this reading: ${quiet.map((t) => `${t.label} (${num(t.count)})`).join(', ')}.`
     : '';
   if (o?.priceUsd != null) $('price-deep').textContent = `$${Number(o.priceUsd) % 1 ? o.priceUsd : Number(o.priceUsd)}`;
-  $('pay-note').textContent = o ? (o.paymentsLive
-    ? 'Deep-review payments are live in this process.'
-    : 'Deep-review quotes are dry in this process until DRYRUN_RECIPIENT is set. The price above is still the configured price.') : '';
+  $('pay-note').textContent = 'Deep review asks NEAR Intents 1Click for a dry quote. No deposit address is issued and no funds move. Confirming the quote writes it to the NEAR testnet receipt contract.';
 }
 
 const RING_COLORS = ['#605EA7', '#A5A0FF', '#11C8D5', '#FC79A4', '#FFCB3A'];
@@ -76,7 +75,7 @@ async function refreshHomeBoard() {
   if (state.homeBoardAt && Date.now() - state.homeBoardAt < 60000) return;
   state.homeBoardAt = Date.now();
   try {
-    const f = await api('/api/field');
+    const f = await api('/api/field' + (state.showNames ? '?names=1' : ''));
     const top = [...(f.board || [])].sort((a, b) => a.rank - b.rank).slice(0, 5);
     if (!top.length) return;
     $('home-board').replaceChildren(...top.map((r) => {
@@ -85,7 +84,9 @@ async function refreshHomeBoard() {
       return li;
     }));
     $('tile-top').textContent = String(top[0].score);
-    $('tile-top-name').textContent = `${top[0].name} · #1 of ${num(f.board.length)} scored`;
+    $('tile-top-name').textContent = `${top[0].name} · #1 of ${num(f.board.length)} scored · estimate`;
+    const note = $('home-estimate');
+    if (note) note.textContent = f.estimateLabel || 'Estimate only. Names on this board are anonymised.';
   } catch { state.homeBoardAt = 0; }
 }
 
@@ -248,13 +249,13 @@ function paintBoard(f) {
       match.title = r.matchNote || '';
       tr.append(match);
       const repo = el('td');
-      if (r.repo && /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/.test(r.repo)) {
+      if (!r.anonymised && r.repo && /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/.test(r.repo)) {
         const a = el('a', 'mono', r.repo.replace('https://github.com/', ''));
         a.href = r.repo;
         a.rel = 'noreferrer';
         a.target = '_blank';
         repo.append(a);
-      } else repo.textContent = '—';
+      } else repo.textContent = r.anonymised ? (r.repoAlias || 'hidden') : '—';
       tr.append(repo);
       return tr;
     }));
@@ -265,6 +266,10 @@ function paintBoard(f) {
 
 function paintField(f) {
   state.field = f;
+  if ($('field-banner') && f?.estimateLabel) $('field-banner').textContent = f.estimateLabel;
+  const namesBtn = $('field-names');
+  if (namesBtn) namesBtn.textContent = state.showNames ? 'Hide team names' : 'Show team names';
+  if ($('field-q')) $('field-q').placeholder = state.showNames ? 'Project or repository' : 'Alias';
   $('field-scan').textContent = [scanLine(f?.scan), f?.scan?.error].filter(Boolean).join(' ');
   $('field-coverage').textContent = coverageLine(f);
   paintGrowth(f);
@@ -313,8 +318,47 @@ async function refreshOverview() {
 }
 
 async function refreshField() {
-  try { paintField(await api('/api/field')); }
+  try { paintField(await api('/api/field' + (state.showNames ? '?names=1' : ''))); }
   catch (e) { $('field-scan').textContent = e.message; }
+}
+
+function receiptBlock(receipt, resultHash, error) {
+  const box = el('div', 'receipt');
+  box.append(el('h3', '', 'Testnet receipt'));
+  if (!receipt) {
+    box.append(el('p', '', error || 'No receipt was written.'));
+    if (resultHash) box.append(el('p', 'mono', resultHash));
+    return box;
+  }
+  const whenMs = receipt.timestamp_ms ? new Date(receipt.timestamp_ms).toISOString() : receipt.timestamp_ns;
+  const rows = [
+    ['Kind', receipt.kind],
+    ['Repo', receipt.repo_url],
+    ['Commit', receipt.commit_sha],
+    ['Result hash', receipt.result_hash],
+    ['Checker', receipt.checker_version],
+    ['Chain time', whenMs],
+    ['Quote hash', receipt.quote_hash || '—'],
+    ['Receipt id', String(receipt.id)],
+  ];
+  for (const [k, v] of rows) {
+    const p = el('p', 'mono');
+    p.append(el('span', '', k + '  '), document.createTextNode(v || '—'));
+    box.append(p);
+  }
+  if (receipt.explorerTx) {
+    const a = el('a', '', 'Open the transaction');
+    a.href = receipt.explorerTx;
+    a.target = '_blank';
+    a.rel = 'noreferrer';
+    box.append(a);
+  }
+  if (receipt.id) {
+    const a = el('a', '', 'Verify this receipt');
+    a.href = '/verify?id=' + encodeURIComponent(receipt.id);
+    box.append(a);
+  }
+  return box;
 }
 
 function checked(id) {
@@ -660,7 +704,7 @@ $('form').addEventListener('submit', async (e) => {
     $('counts').textContent = `Rules check ${r.rulesScore}/100: ${r.fails} failure(s), ${r.warns} warning(s), ${r.results.length - r.fails - r.warns} passed. ${r.aiJudging ? 'AI judging is available on Where do I rank.' : 'AI judging is off on this server.'} Directory size in this reading: ${num(r.directorySize)}.`;
     $('signals').replaceChildren(...signalList(r.quality).childNodes);
     $('results').replaceChildren(...resultList(r.results).childNodes);
-    $('readiness').replaceChildren(readinessBlock(r.readiness));
+    $('readiness').replaceChildren(readinessBlock(r.readiness), receiptBlock(r.receipt, r.resultHash, r.receiptError));
     $('out').hidden = false;
     $('check-empty').hidden = true;
     $('deep').hidden = false;
@@ -672,10 +716,7 @@ $('form').addEventListener('submit', async (e) => {
   $('go').textContent = 'Run free check';
 });
 
-let metaPay = {};
-let pollTimer = null;
 api('/api/tokens').then((t) => {
-  metaPay = t;
   $('price').textContent = '$' + t.priceUsd;
   if ($('price-deep').textContent === '…') $('price-deep').textContent = '$' + t.priceUsd;
   $('asset').replaceChildren(...t.tokens.sort((a, b) => (a.symbol + a.blockchain).localeCompare(b.symbol + b.blockchain)).map((x) => {
@@ -685,73 +726,81 @@ api('/api/tokens').then((t) => {
   }));
   const usdc = t.tokens.find((x) => x.symbol === 'USDC' && x.blockchain === 'base');
   if (usdc) $('asset').value = usdc.assetId;
-  if (t.freeDeep) { $('payform').querySelector('.split').hidden = true; $('quote').textContent = 'Run deep review (free in this build)'; }
+  $('quote').textContent = 'Get a dry quote';
 }).catch(() => {});
 
-async function runDeep(depositAddress) {
-  $('review').replaceChildren(el('p', 'small', 'Reviewing on NEAR AI Cloud. This can take two minutes.'));
-  const d = await api('/api/deep', { repo: window.__repo, depositAddress });
-  const r = d.review || {};
+function reviewBox(d) {
   const box = el('div');
-  box.append(el('p', '', r.summary || ''), el('p', 'small', 'Fresh-clone prediction: ' + (r.runPrediction || 'n/a')));
-  const ul = el('ul', 'results');
-  for (const c of r.claims || []) {
-    const li = el('li');
-    const head = el('div');
-    const lvl = c.verdict === 'supported' ? 'good' : c.verdict === 'unsupported' ? 'bad' : 'warn';
-    head.append(el('span', 'tag ' + lvl, c.verdict), el('span', '', ' ' + (c.claim || '')));
-    li.append(head, el('p', 'small', c.evidence || ''));
-    if (c.fix && lvl !== 'good') li.append(el('p', '', 'Fix: ' + c.fix));
-    ul.append(li);
+  if (!d.review) {
+    box.append(el('p', '', d.aiError || 'The model was not called.'));
+  } else {
+    const r = d.review;
+    box.append(el('p', '', r.summary || ''), el('p', 'small', 'Fresh-clone prediction: ' + (r.runPrediction || 'n/a')));
+    const ul = el('ul', 'results');
+    for (const c of r.claims || []) {
+      const li = el('li');
+      const head = el('div');
+      const lvl = c.verdict === 'supported' ? 'good' : c.verdict === 'unsupported' ? 'bad' : 'warn';
+      head.append(el('span', 'tag ' + lvl, c.verdict), el('span', '', ' ' + (c.claim || '')));
+      li.append(head, el('p', 'small', c.evidence || ''));
+      if (c.fix && lvl !== 'good') li.append(el('p', '', 'Fix: ' + c.fix));
+      ul.append(li);
+    }
+    box.append(ul);
+    if (r.topFixes?.length) {
+      box.append(el('h3', '', 'Do these first'));
+      const ol = el('ol');
+      r.topFixes.forEach((f) => ol.append(el('li', '', f)));
+      box.append(ol);
+    }
+    const sig = d.signature;
+    const sigNote = sig
+      ? ` · ${sig.kind || 'unspecified'} signature${sig.signingAddress ? ' by ' + sig.signingAddress : ''}`
+      : ' · no gateway signature returned';
+    box.append(el('p', 'small mono', `model ${d.model || 'n/a'} · chat ${d.chatId || 'n/a'}` + sigNote));
   }
-  box.append(ul);
-  if (r.topFixes?.length) {
-    box.append(el('h3', '', 'Do these first'));
-    const ol = el('ol');
-    r.topFixes.forEach((f) => ol.append(el('li', '', f)));
-    box.append(ol);
-  }
-  const sig = d.signature;
-  const sigNote = sig
-    ? ` · ${sig.kind || 'unspecified'} signature${sig.signingAddress ? ' by ' + sig.signingAddress : ''}`
-    : ' · no gateway signature returned';
-  box.append(el('p', 'small mono', `model ${d.model} · chat ${d.chatId}` + sigNote));
-  box.append(startupBlock(d.startup, d.startupLabel, d.startupLink));
-  box.append(readinessBlock(d.readiness));
-  $('review').replaceChildren(box);
+  box.append(el('p', 'small mono', `dry quote ${d.quoteHash || ''} · funds moved: no`));
+  box.append(receiptBlock(d.receipt, d.resultHash, null));
+  if (d.startup) box.append(startupBlock(d.startup, d.startupLabel, d.startupLink));
+  if (d.readiness) box.append(readinessBlock(d.readiness));
+  return box;
+}
+
+async function settleDry(quoteId) {
+  $('review').replaceChildren(el('p', 'small', 'Recording the dry quote on testnet. The model runs only when NEAR_AI_API_KEY is set.'));
+  const d = await api('/api/deep', { repo: window.__repo, quoteId });
+  $('review').replaceChildren(reviewBox(d));
 }
 
 $('quote').addEventListener('click', async () => {
   show($('perr'));
   $('quote').disabled = true;
-  clearInterval(pollTimer);
   try {
-    if (metaPay.freeDeep) { await runDeep(); return; }
     const q = await api('/api/quote', { originAsset: $('asset').value, refundTo: $('refund').value });
     const label = $('asset').selectedOptions[0]?.textContent || '';
     const info = $('payinfo');
     info.hidden = false;
-    if (q.dry) {
-      info.replaceChildren(el('p', '', `Quote: ${q.amountInFormatted} ${label} (about ${q.timeEstimate}s to settle).`), el('p', 'small', 'This process has no DRYRUN_RECIPIENT, so the quote is a dry run and no deposit address was issued.'));
-      return;
-    }
-    const st = el('p', 'small', 'Waiting for the deposit…');
+    const go = el('button', 'btn btn-ink', 'Record this dry quote');
+    go.type = 'button';
+    go.addEventListener('click', () => {
+      go.disabled = true;
+      settleDry(q.quoteId).catch((err) => { show($('perr'), err.message); go.disabled = false; });
+    });
     info.replaceChildren(
-      el('p', '', `Send exactly ${q.amountInFormatted} ${label} to:`),
-      el('p', 'mono', q.depositAddress + (q.depositMemo ? `  memo: ${q.depositMemo}` : '')),
-      el('p', 'small', `Valid until ${new Date(q.deadline).toLocaleTimeString()}. Anything that fails is refunded to your address.`),
-      st,
+      el('p', '', `Dry quote: ${q.amountInFormatted || q.amount} ${label}.`),
+      el('p', 'small', 'dry: true. No deposit address. No funds move. The refund address is only there so 1Click can price the route.'),
+      el('p', 'mono', q.quoteHash || ''),
+      go,
     );
-    pollTimer = setInterval(async () => {
-      try {
-        const s = await api('/api/status?depositAddress=' + encodeURIComponent(q.depositAddress));
-        st.textContent = 'Status: ' + s.status;
-        if (s.paid) { clearInterval(pollTimer); runDeep(q.depositAddress).catch((err) => show($('perr'), err.message)); }
-        if (['REFUNDED', 'FAILED'].includes(s.status)) clearInterval(pollTimer);
-      } catch { /* 404 until the deposit is seen */ }
-    }, 5000);
   } catch (err) { show($('perr'), err.message); }
   finally { $('quote').disabled = false; }
+});
+
+$('field-names')?.addEventListener('click', () => {
+  state.showNames = !state.showNames;
+  state.homeBoardAt = 0;
+  refreshField();
+  refreshHomeBoard();
 });
 
 window.addEventListener('hashchange', route);
