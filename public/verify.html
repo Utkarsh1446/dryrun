@@ -7,48 +7,61 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..900&family=Inter:wght@400;500;600;700&family=Fragment+Mono&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<a class="skip" href="#verify-main">Skip to content</a>
-<header class="nav" id="nav">
-  <div class="nav-in">
-    <a class="logo" href="/"><i class="mark" aria-hidden="true"></i>__NAME__</a>
-    <nav class="nav-links" aria-label="Main">
-      <a href="/#field">The field</a>
-      <a href="/#check">Free check</a>
-      <a href="/verify" aria-current="page">Verify</a>
-    </nav>
-  </div>
+<header>
+  <a class="logo" href="/"><span class="mark"></span>dryrun</a>
+  <span class="slash">/</span>
+  <div class="crumb">near-hackathon <span class="pill">rules v2026-11</span></div>
+  <div class="grow"></div>
+  <span class="pill"><span class="dot"></span>testnet · __CONTRACT__</span>
+  <a class="btn" href="/">Docs</a>
+  <a class="btn pri" href="/#check">Run a check</a>
 </header>
-<main class="verify-page" id="verify-main">
-  <div class="wrap">
-    <p class="eyebrow">NEAR testnet</p>
-    <h1 class="d2">Verify a receipt</h1>
-    <p class="lead">This page reads the receipt contract through the public testnet RPC. It does not use the DryRun server. A receipt is the repo URL, commit, result hash, chain timestamp, and checker version written by the recorder account.</p>
-    <div class="verify-card">
-      <p class="small" id="contract-line"></p>
-      <form id="verify-form">
-        <div class="row">
-          <div><label for="receipt-id">Receipt id</label><input id="receipt-id" inputmode="numeric" placeholder="1"></div>
-          <div><label for="receipt-hash">or result hash</label><input id="receipt-hash" placeholder="64 hex characters" autocomplete="off"></div>
-        </div>
-        <button class="btn btn-cyan" id="verify-go" type="submit">Read testnet</button>
-      </form>
-      <p class="err" id="verify-err" role="alert" hidden></p>
-      <div id="verify-out"></div>
+<nav class="tabs">
+  <a href="/#check">Free check</a>
+  <a href="/#rank">Where do I rank</a>
+  <a href="/#idea">Idea check</a>
+  <a href="/#field">The field</a>
+  <a href="/#deep">Deep review</a>
+  <a class="on" href="/verify">Verify</a>
+  <a href="/#organizers">Organizer triage</a>
+</nav>
+<main>
+  <div class="head">
+    <div>
+      <h1>Verify a receipt.</h1>
+      <p class="sub">This page reads the receipt contract through the public testnet RPC. It does not need the DryRun server or a signer. A receipt is the repo URL, commit, result hash, chain time, and checker version.</p>
     </div>
   </div>
+  <section class="card wide">
+    <div class="ch"><h3 id="verify-title">/verify</h3><span class="k">read from rpc.testnet.near.org</span><div class="grow"></div><span class="pill" id="verify-kind">kind: —</span></div>
+    <div class="cb">
+      <p class="muted" id="contract-line"></p>
+      <form id="verify-form" class="inrow" style="margin-top:14px">
+        <label class="input" for="receipt-id"><span class="gh">id</span><input id="receipt-id" inputmode="numeric" placeholder="1"></label>
+        <label class="input" for="receipt-hash"><span class="gh">hash</span><input id="receipt-hash" placeholder="64 hex characters" autocomplete="off"></label>
+        <button class="btn pri" id="verify-go" type="submit">Read testnet</button>
+      </form>
+      <p class="err" id="verify-err" hidden></p>
+      <div id="verify-body"></div>
+    </div>
+  </section>
 </main>
+<footer>
+  <span>dryrun · independent hackathon project</span>
+  <a href="__EXPLORER__">contract __CONTRACT__</a>
+  <div class="grow"></div>
+  <span>testnet · no signer on this page</span>
+</footer>
 <script>
 const CONTRACT = '__CONTRACT__';
 const RPC = '__RPC__' || 'https://rpc.testnet.near.org';
 const EXPLORER = '__EXPLORER__';
 const $ = (id) => document.getElementById(id);
-$('contract-line').textContent = CONTRACT
-  ? 'Contract ' + CONTRACT + ' on testnet.'
-  : 'No contract id is baked into this page.';
+$('contract-line').textContent = CONTRACT ? 'Contract ' + CONTRACT + ' on testnet.' : 'No contract id is set on this page.';
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -62,49 +75,57 @@ async function viewCall(method, args) {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      jsonrpc: '2.0',
-      id: 'verify',
-      method: 'query',
+      jsonrpc: '2.0', id: 'verify', method: 'query',
       params: {
-        request_type: 'call_function',
-        finality: 'final',
-        account_id: CONTRACT,
-        method_name: method,
-        args_base64: btoa(JSON.stringify(args)),
+        request_type: 'call_function', finality: 'final', account_id: CONTRACT,
+        method_name: method, args_base64: btoa(JSON.stringify(args)),
       },
     }),
   });
   const body = await response.json();
   if (body.error) throw new Error(body.error.data || body.error.message || 'RPC error');
   if (body.result && body.result.error) throw new Error(body.result.error);
-  const bytes = new Uint8Array(body.result.result || []);
-  const text = new TextDecoder().decode(bytes);
+  const text = new TextDecoder().decode(new Uint8Array(body.result.result || []));
   return text ? JSON.parse(text) : null;
 }
 
 function showReceipt(receipt) {
-  const box = el('div', 'receipt');
-  const when = receipt.timestamp_ms ? new Date(receipt.timestamp_ms).toISOString() : receipt.timestamp_ns;
+  $('verify-title').textContent = '/verify?id=' + receipt.id;
+  $('verify-kind').textContent = 'kind: ' + (receipt.kind || '—');
+  const box = el('div');
+  const kv = el('div', 'kv');
   const rows = [
-    ['Id', String(receipt.id)],
-    ['Kind', receipt.kind],
-    ['Repo', receipt.repo_url],
-    ['Commit', receipt.commit_sha],
-    ['Result hash', receipt.result_hash],
-    ['Checker', receipt.checker_version],
-    ['Chain time', when],
-    ['Quote hash', receipt.quote_hash || '—'],
-    ['Recorder', receipt.recorder],
+    ['repo', (receipt.repo_url || '').replace('https://', '')],
+    ['commit', receipt.commit_sha],
+    ['result hash', receipt.result_hash],
+    ['checker', receipt.checker_version],
+    ['contract', CONTRACT],
+    ['chain time', receipt.timestamp_ms ? new Date(receipt.timestamp_ms).toISOString() : receipt.timestamp_ns],
+    ['quote hash', receipt.quote_hash || '—'],
+    ['recorder', receipt.recorder || '—'],
   ];
-  for (const [label, value] of rows) box.append(el('p', 'mono', label + '  ' + (value || '—')));
+  for (const [label, value] of rows) {
+    kv.append(el('div', 'l', label), el('div', 'v', value || '—'));
+  }
+  box.append(kv);
+  const note = el('div', 'verified');
+  note.append(el('span', 'tick', '✓'));
+  const copy = el('div');
+  copy.append(el('b', '', 'Read from testnet.'));
+  copy.append(document.createElement('br'));
+  const small = el('span', '', 'No signer needed. Anyone can repeat this view call.');
+  small.style.color = 'var(--mu)';
+  copy.append(small);
+  note.append(copy);
+  box.append(note);
   if (EXPLORER) {
-    const a = el('a', '', 'Contract on the explorer');
+    const a = el('a', 'tx', 'Contract on the explorer');
     a.href = EXPLORER;
     a.target = '_blank';
     a.rel = 'noreferrer';
     box.append(a);
   }
-  $('verify-out').replaceChildren(box);
+  $('verify-body').replaceChildren(box);
 }
 
 $('verify-form').addEventListener('submit', async (event) => {
@@ -132,7 +153,8 @@ $('verify-form').addEventListener('submit', async (event) => {
 const params = new URLSearchParams(location.search);
 if (params.get('id')) $('receipt-id').value = params.get('id');
 if (params.get('hash')) $('receipt-hash').value = params.get('hash');
-if (params.get('id') || params.get('hash')) $('verify-form').requestSubmit();
+if (!$('receipt-id').value && !$('receipt-hash').value) $('receipt-id').value = '1';
+$('verify-form').requestSubmit();
 </script>
 </body>
 </html>

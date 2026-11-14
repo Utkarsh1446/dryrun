@@ -21,7 +21,9 @@ function fill(text) {
     .replaceAll('__PRICE__', String(price))
     .replaceAll('__CONTRACT__', chain.contractId || '')
     .replaceAll('__RPC__', chain.rpcUrl)
-    .replaceAll('__EXPLORER__', chain.explorerAccount || '');
+    .replaceAll('__EXPLORER__', chain.explorerAccount || '')
+    .replaceAll('__DEPLOY_TX__', chain.deployTx || '')
+    .replaceAll('__CHECKER__', chain.checker || '');
 }
 
 await mkdir(dist, { recursive: true });

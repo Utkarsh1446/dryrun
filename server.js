@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ESTIMATE_HIDDEN, ESTIMATE_SHOWN, publicBoard } from './lib/anonymise.js';
 import { PRODUCT } from './lib/brand.js';
-import { chainStatus, readReceipt, recordReceipt } from './lib/chain.js';
+import { chainStatus, readReceipt, receiptCount, recordReceipt } from './lib/chain.js';
 import { CHECKER_VERSION, checkPayload, hashPayload } from './lib/hash.js';
 import { nearAiStatus } from './lib/nearai.js';
 import { rerankIdea, RERANK_KEEP, startupLens } from './lib/ai.js';
@@ -323,7 +323,12 @@ const routes = {
     return audit(url.trim());
   },
   'GET /api/tokens': async () => ({ priceUsd: meta().priceUsd, live: false, quoteMode: 'dry', freeDeep: FREE_DEEP, tokens: await pay.tokens() }),
-  'GET /api/chain': async () => chainStatus(),
+  'GET /api/chain': async () => {
+    const status = chainStatus();
+    let count = null;
+    try { count = await receiptCount(); } catch { count = null; }
+    return { ...status, receiptCount: count };
+  },
   'GET /api/receipt': async (req, url) => readReceipt({ id: url.searchParams.get('id'), hash: url.searchParams.get('hash') }),
   'POST /api/quote': async (req) => {
     const { originAsset, refundTo } = await body(req);
@@ -358,6 +363,22 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+function fillPage(raw) {
+  const chain = chainStatus();
+  return raw
+    .replaceAll('__NAME__', esc(PRODUCT.name))
+    .replaceAll('__TAGLINE__', esc(PRODUCT.tagline))
+    .replaceAll('__DISCLAIMER__', esc(PRODUCT.disclaimer))
+    .replaceAll('__URL__', esc(PRODUCT.url))
+    .replaceAll('__REPO__', esc(PRODUCT.repo))
+    .replaceAll('__PRICE__', esc(String(meta().priceUsd)))
+    .replaceAll('__CONTRACT__', esc(chain.contractId || ''))
+    .replaceAll('__RPC__', esc(chain.rpcUrl))
+    .replaceAll('__EXPLORER__', esc(chain.explorerAccount || ''))
+    .replaceAll('__DEPLOY_TX__', esc(chain.deployTx || ''))
+    .replaceAll('__CHECKER__', esc(chain.checker || ''));
+}
+
 const FILES = {
   '/app.js': ['public/app.js', 'text/javascript; charset=utf-8'],
   '/app.css': ['public/app.css', 'text/css; charset=utf-8'],
@@ -378,14 +399,7 @@ createServer(async (req, res) => {
     if (route) return send(200, await route(req, url));
     if (method === 'GET' && url.pathname === '/') {
       const raw = indexCache.raw || (indexCache.raw = await readFile(join(root, 'public/index.html'), 'utf8'));
-      const html = raw
-        .replaceAll('__NAME__', esc(PRODUCT.name))
-        .replaceAll('__TAGLINE__', esc(PRODUCT.tagline))
-        .replaceAll('__DISCLAIMER__', esc(PRODUCT.disclaimer))
-        .replaceAll('__URL__', esc(PRODUCT.url))
-        .replaceAll('__REPO__', esc(PRODUCT.repo))
-        .replaceAll('__PRICE__', esc(String(meta().priceUsd)));
-      return send(200, html, 'text/html; charset=utf-8');
+      return send(200, fillPage(raw), 'text/html; charset=utf-8');
     }
     if (method === 'GET' && url.pathname === '/robots.txt') {
       return send(200, `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${PRODUCT.url}/sitemap.xml\n`, 'text/plain; charset=utf-8');
@@ -394,14 +408,8 @@ createServer(async (req, res) => {
       return send(200, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${PRODUCT.url}/</loc><changefreq>hourly</changefreq></url>\n  <url><loc>${PRODUCT.url}/llms.txt</loc></url>\n</urlset>\n`, 'application/xml; charset=utf-8');
     }
     if (method === 'GET' && (url.pathname === '/verify' || url.pathname === '/verify/')) {
-      const chain = chainStatus();
       const raw = await readFile(join(root, 'public/verify.html'), 'utf8');
-      const html = raw
-        .replaceAll('__NAME__', esc(PRODUCT.name))
-        .replaceAll('__CONTRACT__', esc(chain.contractId || ''))
-        .replaceAll('__RPC__', esc(chain.rpcUrl))
-        .replaceAll('__EXPLORER__', esc(chain.explorerAccount || ''));
-      return send(200, html, 'text/html; charset=utf-8');
+      return send(200, fillPage(raw), 'text/html; charset=utf-8');
     }
     if (method === 'GET' && url.pathname === '/llms.txt') {
       const raw = await readFile(join(root, 'public/llms.txt'), 'utf8');
