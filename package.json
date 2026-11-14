@@ -1,6 +1,6 @@
 {
   "name": "near-dryrun",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "DryRun reads a public hackathon directory and checks repositories against the published rules. The name lives in lib/brand.js.",
   "type": "module",
   "license": "MIT",
@@ -8,6 +8,9 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
+    "build": "node scripts/build-static.js",
+    "contract:test": "cargo test --manifest-path contract/Cargo.toml --features unit-testing",
+    "contract:build": "cargo build --manifest-path contract/Cargo.toml --target wasm32-unknown-unknown --release",
     "smoke:ai": "node scripts/smoke-ai.js"
   }
 }

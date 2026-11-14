@@ -14,10 +14,15 @@ Source: __REPO__ (MIT)
 
 ## Pricing
 - Free: every check above.
-- Deep review: $__PRICE__ per repository, paid in any supported token through NEAR Intents 1Click and settled in USDC on NEAR. A model on NEAR AI Cloud checks README claims against the code.
+- Deep review: $__PRICE__ per repository, priced with a NEAR Intents 1Click dry quote (dry: true). No deposit address is issued and no funds move. Confirming the quote writes it to a NEAR testnet receipt. A model on NEAR AI Cloud checks README claims only when NEAR_AI_API_KEY is set. Without that key the model is not called.
 - Larger organizer runs: coming soon.
 
+## Live
+- Site: __URL__
+- API: __API__
+- The API is a Render free web service. It sleeps after about 15 minutes without a request. A browser on the static site can read it only after the service sends Access-Control-Allow-Origin for that site. Until the API answers, the page shows a recorded check of near-examples/rust-status-message (score 55) and labels it recorded. The on-chain receipt is https://explorer.testnet.near.org/transactions/4dBZ5SxvdfrLLP3W8ZQodWxFcpbLRaGKdS5gCJ85XEw4
+- Verify reads the testnet contract in the browser: __URL__/verify?id=1
+
 ## Links
-- [Pricing](__URL__/#pricing)
 - [About and source](__REPO__#readme)
 - [Contact (GitHub issues)](__REPO__/issues)

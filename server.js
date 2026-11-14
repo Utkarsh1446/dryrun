@@ -1,9 +1,15 @@
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { corsHeaders } from './lib/cors.js';
+import { ESTIMATE_HIDDEN, ESTIMATE_SHOWN, publicBoard } from './lib/anonymise.js';
 import { PRODUCT } from './lib/brand.js';
+import { chainStatus, readReceipt, receiptCount, recordReceipt } from './lib/chain.js';
+import { CHECKER_VERSION, checkPayload, hashPayload } from './lib/hash.js';
+import { nearAiStatus } from './lib/nearai.js';
 import { rerankIdea, RERANK_KEEP, startupLens } from './lib/ai.js';
 import { assessRepo } from './lib/assess.js';
 import { createJudge } from './lib/judge.js';
@@ -13,7 +19,8 @@ import { LABEL as STARTUP_LABEL, LINK as STARTUP_LINK } from './lib/rubrics/star
 import { buildIndex, DOMAIN_GENERIC, searchIdea, similarByTrack, stem, strength } from './lib/similar.js';
 import { checkDirectory, checkSubmission, score } from './lib/checks.js';
 import { quietTracks } from './lib/cluster.js';
-import { deepReview, finishPaidReview } from './lib/deep.js';
+import { deepReview } from './lib/deep.js';
+import { settleDryReview } from './lib/settle.js';
 import { overviewFrom } from './lib/field.js';
 import { near } from './lib/hackathons/near.js';
 import { canonRepo } from './lib/match.js';
@@ -28,8 +35,6 @@ import { orderTriage, parseRepoList } from './lib/triage.js';
 const root = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 8787;
 const FREE_DEEP = process.env.DRYRUN_FREE_DEEP === '1';
-const used = new Map();
-const pendingReviews = new Set();
 const jobs = new Map();
 
 const store = createStore(process.env.DRYRUN_DATA || join(root, 'data'));
@@ -73,23 +78,33 @@ function field() {
 }
 
 function meta() {
+  const ai = nearAiStatus();
+  const chain = chainStatus();
   return {
     product: PRODUCT,
     priceUsd: Number(pay.config().priceUsdc) / 1e6,
-    paymentsLive: Boolean(pay.config().recipient),
-    ai: Boolean(process.env.NEAR_AI_API_KEY),
-    aiBoard: process.env.DRYRUN_AI_BOARD === '1' && Boolean(process.env.NEAR_AI_API_KEY),
+    paymentsLive: false,
+    quoteMode: 'dry',
+    fundsMoved: false,
+    ai: ai.configured,
+    aiNote: ai.note,
+    aiBoard: process.env.DRYRUN_AI_BOARD === '1' && ai.configured,
     freeDeep: FREE_DEEP,
+    chain,
+    checker: CHECKER_VERSION,
     hackathon: { id: near.id, name: near.name, tracks: near.tracks },
   };
 }
 
-function publicField(source) {
+function publicField(source, { names = false } = {}) {
   const clusters = source.clusters || { tokens: [], names: [], near: [] };
-  const trim = (list) => (list || []).map(({ kind, label, count, names }) => ({ kind, label, count, names }));
+  const trim = (list) => (list || []).map(({ kind, label, count, names: groupNames }) => ({ kind, label, count, names: groupNames }));
   return {
     ready: source.ready,
     speculation: true,
+    estimate: true,
+    names: names ? 'shown' : 'anonymised',
+    estimateLabel: names ? ESTIMATE_SHOWN : ESTIMATE_HIDDEN,
     disclaimer: source.disclaimer,
     hackathon: source.hackathon,
     total: source.total,
@@ -100,7 +115,7 @@ function publicField(source) {
     clusters: { tokens: trim(clusters.tokens), names: trim(clusters.names), near: trim(clusters.near) },
     coverage: source.coverage,
     scan: source.scan,
-    board: source.board,
+    board: publicBoard(source.board, { names }),
   };
 }
 
@@ -158,7 +173,7 @@ async function runTriage(job, items) {
 const routes = {
   'GET /api/meta': async () => meta(),
   'GET /api/overview': async () => overviewFrom(field(), meta()),
-  'GET /api/field': async () => publicField(field()),
+  'GET /api/field': async (req, url) => publicField(field(), { names: url.searchParams.get('names') === '1' }),
   'POST /api/rank': async (req) => {
     const { repo, tracks = [], site } = await body(req);
     if (!validRepo(String(repo || '').trim())) throw Object.assign(new Error('Repository must be a public https://github.com/<owner>/<repo> URL'), { status: 400 });
@@ -271,36 +286,69 @@ const routes = {
       assessRepo(snap, { rulebook: nearRulebook, extraResults: [...checkSubmission(submission), ...checkDirectory(directoryProjects(), submission)] }),
       readinessFor(siteFor(snap, submission?.siteUrl)),
     ]);
-    return { repo: canonRepo(repo) || repo, ...a, readiness, rules: score(a.results), directorySize: directoryProjects().length, aiJudging: Boolean(process.env.NEAR_AI_API_KEY) };
+    const payload = checkPayload({ repo: canonRepo(repo) || repo, sha: a.sha, assessment: a });
+    const resultHash = a.sha ? hashPayload(payload) : null;
+    let receipt = null;
+    let receiptError = null;
+    if (resultHash && chainStatus().configured) {
+      try {
+        receipt = await recordReceipt({
+          repo_url: payload.repo,
+          commit_sha: a.sha,
+          result_hash: resultHash,
+          checker_version: CHECKER_VERSION,
+          kind: 'check',
+          quote_hash: null,
+        });
+      } catch (error) {
+        receiptError = error.status ? error.message : 'The testnet receipt was not written.';
+      }
+    } else if (!chainStatus().configured) {
+      receiptError = 'Testnet recording is off. Set NEAR_CONTRACT_ID and NEAR_PRIVATE_KEY to write a receipt.';
+    }
+    return {
+      repo: payload.repo,
+      ...a,
+      readiness,
+      rules: score(a.results),
+      directorySize: directoryProjects().length,
+      aiJudging: Boolean(process.env.NEAR_AI_API_KEY),
+      resultHash,
+      checker: CHECKER_VERSION,
+      receipt,
+      receiptError,
+    };
   },
   'POST /api/readiness': async (req) => {
     const { url } = await body(req);
     if (typeof url !== 'string' || url.length > 500 || !/^https?:\/\//i.test(url.trim())) throw Object.assign(new Error('Give an http(s) URL'), { status: 400 });
     return audit(url.trim());
   },
-  'GET /api/tokens': async () => ({ priceUsd: meta().priceUsd, live: meta().paymentsLive, freeDeep: FREE_DEEP, tokens: await pay.tokens() }),
+  'GET /api/tokens': async () => ({ priceUsd: meta().priceUsd, live: false, quoteMode: 'dry', freeDeep: FREE_DEEP, tokens: await pay.tokens() }),
+  'GET /api/chain': async () => {
+    const status = chainStatus();
+    let count = null;
+    try { count = await receiptCount(); } catch { count = null; }
+    return { ...status, receiptCount: count };
+  },
+  'GET /api/receipt': async (req, url) => readReceipt({ id: url.searchParams.get('id'), hash: url.searchParams.get('hash') }),
   'POST /api/quote': async (req) => {
     const { originAsset, refundTo } = await body(req);
     if (typeof originAsset !== 'string' || typeof refundTo !== 'string' || !refundTo.trim() || refundTo.length > 128) throw Object.assign(new Error('originAsset and refundTo are required'), { status: 400 });
     return pay.quote({ originAsset, refundTo: refundTo.trim() });
   },
-  'GET /api/status': async (req, url) => {
-    const st = await pay.status(url.searchParams.get('depositAddress') || '');
-    return { status: st.status, paid: pay.isPaid(st) };
-  },
   'POST /api/deep': async (req) => {
-    const { repo, depositAddress } = await body(req);
+    const { repo, quoteId } = await body(req);
     const url = canonRepo(String(repo || '').trim());
     if (!url) throw Object.assign(new Error('Invalid repo URL'), { status: 400 });
-    return finishPaidReview({
-      free: FREE_DEEP,
-      used,
-      pending: pendingReviews,
-      depositAddress,
+    if (!quoteId || typeof quoteId !== 'string') throw Object.assign(new Error('Send quoteId from a dry 1Click quote. This build does not accept a deposit.'), { status: 400 });
+    const snap = await snapshot(url);
+    if (!snap.sha || !/^[0-9a-f]{40}$/.test(snap.sha)) throw Object.assign(new Error('The clone has no commit SHA to record'), { status: 422 });
+    return settleDryReview({
+      quoteId,
       repo: url,
-      paid: async () => pay.isPaid(await pay.status(depositAddress)),
+      sha: snap.sha,
       run: async () => {
-        const snap = await snapshot(url);
         const readme = readmeOf(snap.files)?.text || '';
         const [review, startup, readiness] = await Promise.all([
           deepReview(snap),
@@ -317,34 +365,65 @@ function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+function fillPage(raw) {
+  const chain = chainStatus();
+  return raw
+    .replaceAll('__NAME__', esc(PRODUCT.name))
+    .replaceAll('__TAGLINE__', esc(PRODUCT.tagline))
+    .replaceAll('__DISCLAIMER__', esc(PRODUCT.disclaimer))
+    .replaceAll('__URL__', esc(PRODUCT.url))
+    .replaceAll('__REPO__', esc(PRODUCT.repo))
+    .replaceAll('__PRICE__', esc(String(meta().priceUsd)))
+    .replaceAll('__CONTRACT__', esc(chain.contractId || ''))
+    .replaceAll('__RPC__', esc(chain.rpcUrl))
+    .replaceAll('__EXPLORER__', esc(chain.explorerAccount || ''))
+    .replaceAll('__DEPLOY_TX__', esc(chain.deployTx || ''))
+    .replaceAll('__CHECKER__', esc(chain.checker || ''));
+}
+
 const FILES = {
   '/app.js': ['public/app.js', 'text/javascript; charset=utf-8'],
   '/app.css': ['public/app.css', 'text/css; charset=utf-8'],
   '/og.png': ['public/og.png', 'image/png'],
   '/favicon.svg': ['public/favicon.svg', 'image/svg+xml'],
+  '/recorded-check.json': ['public/recorded-check.json', 'application/json; charset=utf-8'],
 };
 
 const indexCache = {};
-createServer(async (req, res) => {
+
+function responseBody(obj, type) {
+  if (type === 'application/json' && obj !== null && typeof obj === 'object' && !Buffer.isBuffer(obj)) return JSON.stringify(obj);
+  return obj;
+}
+
+export function createApp() {
+  return createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const send = (code, obj, type = 'application/json') => {
-    res.writeHead(code, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' });
-    res.end(type === 'application/json' ? JSON.stringify(obj) : obj);
+    res.writeHead(code, {
+      'Content-Type': type,
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-store',
+      ...corsHeaders(req.headers.origin),
+    });
+    res.end(responseBody(obj, type));
   };
   try {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'no-store',
+        ...corsHeaders(req.headers.origin),
+      });
+      res.end();
+      return;
+    }
     const method = req.method === 'HEAD' ? 'GET' : req.method;
     const route = routes[`${method} ${url.pathname}`];
     if (route) return send(200, await route(req, url));
     if (method === 'GET' && url.pathname === '/') {
       const raw = indexCache.raw || (indexCache.raw = await readFile(join(root, 'public/index.html'), 'utf8'));
-      const html = raw
-        .replaceAll('__NAME__', esc(PRODUCT.name))
-        .replaceAll('__TAGLINE__', esc(PRODUCT.tagline))
-        .replaceAll('__DISCLAIMER__', esc(PRODUCT.disclaimer))
-        .replaceAll('__URL__', esc(PRODUCT.url))
-        .replaceAll('__REPO__', esc(PRODUCT.repo))
-        .replaceAll('__PRICE__', esc(String(meta().priceUsd)));
-      return send(200, html, 'text/html; charset=utf-8');
+      return send(200, fillPage(raw), 'text/html; charset=utf-8');
     }
     if (method === 'GET' && url.pathname === '/robots.txt') {
       return send(200, `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${PRODUCT.url}/sitemap.xml\n`, 'text/plain; charset=utf-8');
@@ -352,9 +431,13 @@ createServer(async (req, res) => {
     if (method === 'GET' && url.pathname === '/sitemap.xml') {
       return send(200, `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${PRODUCT.url}/</loc><changefreq>hourly</changefreq></url>\n  <url><loc>${PRODUCT.url}/llms.txt</loc></url>\n</urlset>\n`, 'application/xml; charset=utf-8');
     }
+    if (method === 'GET' && (url.pathname === '/verify' || url.pathname === '/verify/')) {
+      const raw = await readFile(join(root, 'public/verify.html'), 'utf8');
+      return send(200, fillPage(raw), 'text/html; charset=utf-8');
+    }
     if (method === 'GET' && url.pathname === '/llms.txt') {
       const raw = await readFile(join(root, 'public/llms.txt'), 'utf8');
-      return send(200, raw.replaceAll('__NAME__', PRODUCT.name).replaceAll('__TAGLINE__', PRODUCT.tagline).replaceAll('__DISCLAIMER__', PRODUCT.disclaimer).replaceAll('__URL__', PRODUCT.url).replaceAll('__REPO__', PRODUCT.repo).replaceAll('__PRICE__', String(meta().priceUsd)), 'text/plain; charset=utf-8');
+      return send(200, raw.replaceAll('__NAME__', PRODUCT.name).replaceAll('__TAGLINE__', PRODUCT.tagline).replaceAll('__DISCLAIMER__', PRODUCT.disclaimer).replaceAll('__URL__', PRODUCT.url).replaceAll('__API__', PRODUCT.url).replaceAll('__REPO__', PRODUCT.repo).replaceAll('__PRICE__', String(meta().priceUsd)), 'text/plain; charset=utf-8');
     }
     const file = FILES[url.pathname];
     if (method === 'GET' && file) return send(200, await readFile(join(root, file[0])), file[1]);
@@ -363,7 +446,18 @@ createServer(async (req, res) => {
     if (!e.status) console.error(e);
     send(e.status || 500, { error: e.status ? e.message : 'Internal error' });
   }
-}).listen(PORT, () => {
-  const payTo = pay.config().recipient;
-  console.log(`${PRODUCT.name} on http://localhost:${PORT}  payments:${payTo ? 'live -> ' + payTo : 'dry'}  deep:${process.env.NEAR_AI_API_KEY ? 'on' : 'off'}  scan:${scanner ? 'on' : 'off'}`);
-});
+  });
+}
+
+function ranAsMain() {
+  if (!process.argv[1]) return false;
+  try { return fileURLToPath(import.meta.url) === realpathSync(process.argv[1]); }
+  catch { return false; }
+}
+
+if (ranAsMain()) {
+  createApp().listen(PORT, '0.0.0.0', () => {
+    const chain = chainStatus();
+    console.log(`${PRODUCT.name} on http://localhost:${PORT}  quotes:dry  chain:${chain.configured ? chain.contractId : 'off'}  deep:${process.env.NEAR_AI_API_KEY ? 'on' : 'off'}  scan:${scanner ? 'on' : 'off'}`);
+  });
+}

@@ -1,0 +1,37 @@
+{
+  "recorded": true,
+  "label": "Recorded check. Not a live run.",
+  "repo": "https://github.com/near-examples/rust-status-message",
+  "sha": "dca9bf2c080345c7efe8dc2ff13f9b4efd45065e",
+  "score": 55,
+  "rulesScore": 77,
+  "fails": 1,
+  "warns": 2,
+  "checker": "0.3.0",
+  "resultHash": "611e27bd71b1e24977bb77bea1ff3ec00fdad8a14b2c1b37b0032c926e2fcf54",
+  "recordedAt": "2026-11-14T03:18:24.328Z",
+  "results": [
+    { "id": "license", "level": "pass", "title": "LICENSE file present" },
+    { "id": "readme", "level": "pass", "title": "README present" },
+    { "id": "run-steps", "level": "pass", "title": "README has runnable steps" },
+    { "id": "commands-resolve", "level": "pass", "title": "README commands resolve" },
+    { "id": "disclosure", "level": "pass", "title": "Libraries / AI use disclosed" },
+    { "id": "near-role", "level": "pass", "title": "NEAR role is described" },
+    { "id": "secrets", "level": "pass", "title": "No secrets found" },
+    { "id": "window", "level": "fail", "title": "No commits since the announcement" },
+    { "id": "lockfile", "level": "warn", "title": "No lockfile" },
+    { "id": "tests", "level": "warn", "title": "No tests found" }
+  ],
+  "receipt": {
+    "id": 1,
+    "kind": "check",
+    "txHash": "4dBZ5SxvdfrLLP3W8ZQodWxFcpbLRaGKdS5gCJ85XEw4",
+    "explorerTx": "https://explorer.testnet.near.org/transactions/4dBZ5SxvdfrLLP3W8ZQodWxFcpbLRaGKdS5gCJ85XEw4",
+    "repo_url": "https://github.com/near-examples/rust-status-message",
+    "commit_sha": "dca9bf2c080345c7efe8dc2ff13f9b4efd45065e",
+    "result_hash": "611e27bd71b1e24977bb77bea1ff3ec00fdad8a14b2c1b37b0032c926e2fcf54",
+    "checker_version": "0.3.0",
+    "quote_hash": null,
+    "network": "testnet"
+  }
+}

@@ -1,0 +1,22 @@
+[package]
+name = "dryrun_receipts"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "NEAR testnet receipts for a DryRun check: repo, commit, result hash, timestamp, checker version."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "5.7.0"
+
+[features]
+unit-testing = ["near-sdk/unit-testing"]
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+panic = "abort"
+overflow-checks = true
