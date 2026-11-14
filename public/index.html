@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/app.css">
 </head>
-<body>
+<body data-contract="__CONTRACT__" data-rpc="__RPC__" data-deploy="__DEPLOY_TX__" data-explorer="__EXPLORER__">
 <header>
   <a class="logo" href="#check"><span class="mark"></span>dryrun</a>
   <span class="slash">/</span>
@@ -31,6 +31,11 @@
   <a href="#organizers" data-go="organizers">Organizer triage</a>
 </nav>
 <main>
+  <div class="banner stand" id="api-banner" hidden>
+    <span class="tag">NO API</span>
+    <span id="api-banner-text"></span>
+    <button class="btn" id="api-retry" type="button">Wake / retry</button>
+  </div>
   <div data-view="check">
     <div class="head">
       <div>
@@ -42,7 +47,8 @@
     </div>
     <div class="grid">
       <section class="card span-7" id="check-card">
-        <div class="ch"><h3>Free check</h3><span class="k">deterministic · no AI · no account</span><div class="grow"></div><span class="pill">checker __CHECKER__</span></div>
+        <div class="ch"><h3>Free check</h3><span class="k">deterministic · no AI · no account</span><div class="grow"></div><span class="pill" id="recorded-pill" hidden>recorded</span><span class="pill">checker __CHECKER__</span></div>
+        <div class="banner" id="recorded-flag" hidden><span class="tag">RECORDED</span><span id="recorded-flag-text"></span></div>
         <form id="form">
           <div class="cb">
             <div class="inrow">
@@ -118,7 +124,7 @@
     </div>
     <div class="stats">
       <div><b id="stat-receipts">…</b><span>receipt_count</span></div>
-      <div><b>71 + 6</b><span>app + contract tests</span></div>
+      <div><b>74 + 6</b><span>app + contract tests</span></div>
       <div><b>0</b><span>funds moved</span></div>
       <div><b>2</b><span>tracks · open, business</span></div>
     </div>

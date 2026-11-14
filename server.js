@@ -1,8 +1,10 @@
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { corsHeaders } from './lib/cors.js';
 import { ESTIMATE_HIDDEN, ESTIMATE_SHOWN, publicBoard } from './lib/anonymise.js';
 import { PRODUCT } from './lib/brand.js';
 import { chainStatus, readReceipt, receiptCount, recordReceipt } from './lib/chain.js';
@@ -384,16 +386,38 @@ const FILES = {
   '/app.css': ['public/app.css', 'text/css; charset=utf-8'],
   '/og.png': ['public/og.png', 'image/png'],
   '/favicon.svg': ['public/favicon.svg', 'image/svg+xml'],
+  '/recorded-check.json': ['public/recorded-check.json', 'application/json; charset=utf-8'],
 };
 
 const indexCache = {};
-createServer(async (req, res) => {
+
+function responseBody(obj, type) {
+  if (type === 'application/json' && obj !== null && typeof obj === 'object' && !Buffer.isBuffer(obj)) return JSON.stringify(obj);
+  return obj;
+}
+
+export function createApp() {
+  return createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const send = (code, obj, type = 'application/json') => {
-    res.writeHead(code, { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' });
-    res.end(type === 'application/json' ? JSON.stringify(obj) : obj);
+    res.writeHead(code, {
+      'Content-Type': type,
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-store',
+      ...corsHeaders(req.headers.origin),
+    });
+    res.end(responseBody(obj, type));
   };
   try {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': 'no-store',
+        ...corsHeaders(req.headers.origin),
+      });
+      res.end();
+      return;
+    }
     const method = req.method === 'HEAD' ? 'GET' : req.method;
     const route = routes[`${method} ${url.pathname}`];
     if (route) return send(200, await route(req, url));
@@ -413,7 +437,7 @@ createServer(async (req, res) => {
     }
     if (method === 'GET' && url.pathname === '/llms.txt') {
       const raw = await readFile(join(root, 'public/llms.txt'), 'utf8');
-      return send(200, raw.replaceAll('__NAME__', PRODUCT.name).replaceAll('__TAGLINE__', PRODUCT.tagline).replaceAll('__DISCLAIMER__', PRODUCT.disclaimer).replaceAll('__URL__', PRODUCT.url).replaceAll('__REPO__', PRODUCT.repo).replaceAll('__PRICE__', String(meta().priceUsd)), 'text/plain; charset=utf-8');
+      return send(200, raw.replaceAll('__NAME__', PRODUCT.name).replaceAll('__TAGLINE__', PRODUCT.tagline).replaceAll('__DISCLAIMER__', PRODUCT.disclaimer).replaceAll('__URL__', PRODUCT.url).replaceAll('__API__', PRODUCT.url).replaceAll('__REPO__', PRODUCT.repo).replaceAll('__PRICE__', String(meta().priceUsd)), 'text/plain; charset=utf-8');
     }
     const file = FILES[url.pathname];
     if (method === 'GET' && file) return send(200, await readFile(join(root, file[0])), file[1]);
@@ -422,7 +446,18 @@ createServer(async (req, res) => {
     if (!e.status) console.error(e);
     send(e.status || 500, { error: e.status ? e.message : 'Internal error' });
   }
-}).listen(PORT, '0.0.0.0', () => {
-  const chain = chainStatus();
-  console.log(`${PRODUCT.name} on http://localhost:${PORT}  quotes:dry  chain:${chain.configured ? chain.contractId : 'off'}  deep:${process.env.NEAR_AI_API_KEY ? 'on' : 'off'}  scan:${scanner ? 'on' : 'off'}`);
-});
+  });
+}
+
+function ranAsMain() {
+  if (!process.argv[1]) return false;
+  try { return fileURLToPath(import.meta.url) === realpathSync(process.argv[1]); }
+  catch { return false; }
+}
+
+if (ranAsMain()) {
+  createApp().listen(PORT, '0.0.0.0', () => {
+    const chain = chainStatus();
+    console.log(`${PRODUCT.name} on http://localhost:${PORT}  quotes:dry  chain:${chain.configured ? chain.contractId : 'off'}  deep:${process.env.NEAR_AI_API_KEY ? 'on' : 'off'}  scan:${scanner ? 'on' : 'off'}`);
+  });
+}

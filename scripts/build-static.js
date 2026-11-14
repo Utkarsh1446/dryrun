@@ -9,14 +9,16 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 const chain = chainStatus();
 const price = process.env.DRYRUN_PRICE_USD || '5';
-const api = process.env.DRYRUN_PUBLIC_URL || PRODUCT.url;
+const site = process.env.DRYRUN_SITE_URL || 'https://dryrun-near.pages.dev';
+const api = process.env.DRYRUN_API_URL || 'https://dryrun-pfgy.onrender.com';
 
 function fill(text) {
   return text
     .replaceAll('__NAME__', PRODUCT.name)
     .replaceAll('__TAGLINE__', PRODUCT.tagline)
     .replaceAll('__DISCLAIMER__', PRODUCT.disclaimer)
-    .replaceAll('__URL__', api)
+    .replaceAll('__URL__', site)
+    .replaceAll('__API__', api)
     .replaceAll('__REPO__', PRODUCT.repo)
     .replaceAll('__PRICE__', String(price))
     .replaceAll('__CONTRACT__', chain.contractId || '')
@@ -33,11 +35,13 @@ await writeFile(join(dist, 'index.html'), index);
 await writeFile(join(dist, 'verify.html'), fill(await readFile(join(root, 'public/verify.html'), 'utf8')));
 await writeFile(join(dist, 'llms.txt'), fill(await readFile(join(root, 'public/llms.txt'), 'utf8')));
 await writeFile(join(dist, 'config.js'), `window.DRYRUN_API = ${JSON.stringify(api)};\n`);
-await writeFile(join(dist, 'robots.txt'), `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${api}/sitemap.xml\n`);
-for (const file of ['app.js', 'app.css', 'favicon.svg', 'og.png']) {
+await writeFile(join(dist, 'robots.txt'), `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${site}/sitemap.xml\n`);
+await writeFile(join(dist, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${site}/</loc></url>\n  <url><loc>${site}/verify</loc></url>\n  <url><loc>${site}/llms.txt</loc></url>\n</urlset>\n`);
+for (const file of ['app.js', 'app.css', 'favicon.svg', 'og.png', 'recorded-check.json']) {
   await copyFile(join(root, 'public', file), join(dist, file));
 }
 console.log(`static build ${dist}`);
 console.log(`pages: index.html verify.html`);
+console.log(`site ${site}`);
 console.log(`api ${api}`);
 console.log(`contract ${chain.contractId || 'unset'}`);

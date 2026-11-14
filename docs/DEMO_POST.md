@@ -8,7 +8,8 @@ DryRun runs that read before you submit. Paste a public repo, get the rule resul
 
 Built at NEAR HACKATHON.
 
-Demo: https://dryrun-pfgy.onrender.com
+Demo: https://dryrun-near.pages.dev
+Receipt: https://explorer.testnet.near.org/transactions/4dBZ5SxvdfrLLP3W8ZQodWxFcpbLRaGKdS5gCJ85XEw4
 Repo: https://github.com/Utkarsh1446/dryrun
 
 What should a one-shot submission leave on chain so a judge can check the hash?

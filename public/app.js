@@ -5,13 +5,110 @@ const num = (v) => v == null || Number.isNaN(Number(v)) ? '…' : Number(v).toLo
 const API = window.DRYRUN_API || '';
 const RPC = document.body.dataset.rpc || '';
 
-const state = { overview: null, field: null, track: '', q: '', show: 40, showNames: false, chain: null, quote: null, tokens: [] };
+const state = {
+  overview: null, field: null, track: '', q: '', show: 40, showNames: false, quote: null, tokens: [],
+  apiDown: false, showingRecorded: false, recorded: null,
+  chain: {
+    contractId: document.body.dataset.contract || '',
+    rpcUrl: document.body.dataset.rpc || 'https://rpc.testnet.near.org',
+    deployTx: document.body.dataset.deploy || '',
+    explorerAccount: document.body.dataset.explorer || '',
+  },
+};
 
-async function api(path, body) {
-  const r = await fetch(API + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
-  return j;
+function apiOrigin() {
+  return API || location.origin;
+}
+
+function apiDownMessage() {
+  return `The API at ${apiOrigin()} did not answer this page. Render's free tier sleeps after about 15 minutes, and the deployed API sends no CORS header until the owner redeploys this branch.`;
+}
+
+async function api(path, body, options = {}) {
+  const timeout = options.timeout ?? 12000;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    const r = await fetch(API + path, {
+      method: body ? 'POST' : 'GET',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const error = new Error(j.error || `HTTP ${r.status}`);
+      error.status = r.status;
+      if (!j.error && r.status >= 502) error.offline = true;
+      throw error;
+    }
+    return j;
+  } catch (error) {
+    if (error.offline || (error.status && !error.offline)) throw error;
+    const offline = new Error(apiDownMessage());
+    offline.offline = true;
+    throw offline;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function showApiDown() {
+  state.apiDown = true;
+  const banner = $('api-banner');
+  if (banner) banner.hidden = false;
+  const text = $('api-banner-text');
+  if (text) text.textContent = apiDownMessage();
+  const retry = $('api-retry');
+  if (retry) {
+    retry.disabled = false;
+    retry.textContent = 'Wake / retry';
+  }
+  if ($('field-scan')) $('field-scan').textContent = 'The API did not answer. This is not a live directory.';
+  if ($('field-coverage')) $('field-coverage').textContent = 'No directory was loaded.';
+  const board = $('board-banner-text');
+  if (board && !state.field?.board?.length) board.textContent = 'Directory not loaded. The API did not answer, so this is not a live reading.';
+  const tag = $('board-banner')?.querySelector('.tag');
+  if (tag && !state.field?.board?.length) tag.textContent = 'NO API';
+  const body = $('board-body');
+  if (body && !state.field?.board?.length) {
+    const tr = el('tr');
+    const td = el('td', '', 'The directory was not loaded. Nothing here is a sample team.');
+    td.colSpan = 6;
+    tr.append(td);
+    body.replaceChildren(tr);
+  }
+}
+
+function clearRecorded() {
+  state.showingRecorded = false;
+  if ($('recorded-pill')) $('recorded-pill').hidden = true;
+  if ($('recorded-flag')) $('recorded-flag').hidden = true;
+}
+
+function showRecorded(record) {
+  if (!record || record.recorded !== true) return;
+  state.recorded = record;
+  state.showingRecorded = true;
+  const slug = String(record.repo || '').replace('https://github.com/', '');
+  if ($('repo') && !$('repo').value.trim()) $('repo').value = slug;
+  if ($('recorded-pill')) $('recorded-pill').hidden = false;
+  const flag = $('recorded-flag');
+  if (flag) {
+    flag.hidden = false;
+    flag.replaceChildren(el('span', 'tag', 'RECORDED'));
+    const text = el('span', '', `Stored result for ${slug}. Score ${record.score}. Not a live check.`);
+    text.id = 'recorded-flag-text';
+    flag.append(text);
+    if (record.receipt?.explorerTx) {
+      const link = el('a', '', 'on-chain receipt');
+      link.href = record.receipt.explorerTx;
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      flag.append(link);
+    }
+  }
+  paintCheck({ ...record, recorded: true, receipt: record.receipt, receiptError: null });
 }
 
 function repoUrl(raw) {
@@ -97,7 +194,10 @@ function paintCheck(r) {
   const failLabel = fail === 1 ? 'failure' : 'failures';
   $('counts').textContent = `${pass} pass · ${warn} ${warnLabel} · ${fail} ${failLabel}`;
   const sha = (r.sha || '').slice(0, 12);
-  $('score-meta').textContent = `commit ${sha} · content score out of 100 · ${results.length} rule rows from this run`;
+  $('score-meta').textContent = r.recorded
+    ? `Recorded commit ${sha} · content score out of 100 · ${results.length} rule rows from that stored run`
+    : `commit ${sha} · content score out of 100 · ${results.length} rule rows from this run`;
+  if (!r.recorded) clearRecorded();
   const order = { fail: 0, warn: 1, pass: 2 };
   const rules = $('rules');
   rules.replaceChildren(...[...results].sort((a, b) => order[a.level] - order[b.level]).map((x) => {
@@ -122,27 +222,30 @@ function paintCheck(r) {
     details.append(list);
     extra.append(details);
   }
-  window.__repo = r.repo || repoUrl($('repo').value);
+  window.__repo = r.recorded ? '' : (r.repo || repoUrl($('repo').value));
   paintReceiptStrip(r);
-  if (r.receipt) paintVerify(r.receipt, { matched: r.receipt.result_hash === r.resultHash });
+  if (r.receipt) paintVerify(r.receipt, { matched: !r.recorded && r.receipt.result_hash === r.resultHash, recorded: Boolean(r.recorded) });
 }
 
 function paintReceiptStrip(r) {
   const line = $('receipt-line');
   const link = $('receipt-link');
   if (r.receipt?.txHash) {
-    line.innerHTML = '';
-    line.append('Receipt ', el('b', '', `#${r.receipt.id}`), ' written · tx ', el('b', '', shortTx(r.receipt.txHash)));
+    line.replaceChildren();
+    if (r.recorded) line.append('Recorded receipt ', el('b', '', `#${r.receipt.id}`), ' · tx ', el('b', '', shortTx(r.receipt.txHash)));
+    else line.append('Receipt ', el('b', '', `#${r.receipt.id}`), ' written · tx ', el('b', '', shortTx(r.receipt.txHash)));
     link.hidden = false;
-    link.href = `/verify?id=${r.receipt.id}`;
-    link.textContent = `open /verify?id=${r.receipt.id} →`;
+    link.href = r.recorded && r.receipt.explorerTx ? r.receipt.explorerTx : `/verify?id=${r.receipt.id}`;
+    link.textContent = r.recorded ? 'on-chain receipt →' : `open /verify?id=${r.receipt.id} →`;
+    if (r.recorded) { link.target = '_blank'; link.rel = 'noreferrer'; }
+    else { link.removeAttribute('target'); link.removeAttribute('rel'); }
   } else {
     line.textContent = r.receiptError || 'No receipt was written.';
     link.hidden = true;
   }
 }
 
-function paintVerify(receipt, { matched = false } = {}) {
+function paintVerify(receipt, { matched = false, recorded = false } = {}) {
   if (!receipt) return;
   $('verify-title').textContent = `/verify?id=${receipt.id}`;
   $('verify-kind').textContent = `kind: ${receipt.kind || '—'}`;
@@ -158,7 +261,12 @@ function paintVerify(receipt, { matched = false } = {}) {
   for (const [label, value] of rows) kv.append(el('div', 'l', label), el('div', 'v', value || '—'));
   const box = el('div');
   box.append(kv);
-  if (matched) {
+  if (recorded) {
+    const note = el('p', 'muted');
+    note.style.marginTop = '14px';
+    note.textContent = 'Recorded result. This page did not re-check the repository. The hash is the one stored on testnet.';
+    box.append(note);
+  } else if (matched) {
     const note = el('div', 'verified');
     note.append(el('span', 'tick', '✓'));
     const copy = el('div');
@@ -223,7 +331,8 @@ function paintMiniBoard(f) {
 async function refreshBoard() {
   try { paintMiniBoard(await api('/api/field' + (state.showNames ? '?names=1' : ''))); }
   catch (error) {
-    $('board-banner-text').textContent = error.message;
+    if (error.offline) showApiDown();
+    else if ($('board-banner-text')) $('board-banner-text').textContent = error.message;
   }
 }
 
@@ -437,8 +546,18 @@ $('form').addEventListener('submit', async (e) => {
   $('go').textContent = 'Checking…';
   const submission = { tracks: checked('tracks') };
   for (const k of ['projectName', 'nearAddress', 'idea', 'demoText', 'demoUrl', 'siteUrl']) if ($(k).value.trim()) submission[k] = $(k).value.trim();
-  try { paintCheck(await api('/api/check', { repo: repoUrl($('repo').value), submission })); }
-  catch (error) { show($('err'), error.message); }
+  try {
+    const result = await api('/api/check', { repo: repoUrl($('repo').value), submission });
+    state.apiDown = false;
+    if ($('api-banner')) $('api-banner').hidden = true;
+    paintCheck(result);
+  } catch (error) {
+    if (error.offline) {
+      showApiDown();
+      if (state.recorded) showRecorded(state.recorded);
+      show($('err'), 'This check did not run. The API did not answer. The score on this card is the recorded check of near-examples/rust-status-message.');
+    } else show($('err'), error.message);
+  }
   $('go').disabled = false;
   $('go').textContent = 'Check';
 });
@@ -459,7 +578,8 @@ $('quote').addEventListener('click', async () => {
     state.quote = null;
     await refreshStats();
   } catch (error) {
-    show($('perr'), error.message);
+    if (error.offline) showApiDown();
+    show($('perr'), error.offline ? 'The dry quote did not run. The API did not answer.' : error.message);
     $('quote').textContent = state.quote ? 'Record this dry quote' : 'Get a dry quote';
   } finally { $('quote').disabled = false; }
 });
@@ -477,7 +597,10 @@ $('rank-form').addEventListener('submit', async (e) => {
   $('rank-go').disabled = true;
   $('rank-out').replaceChildren(el('p', 'muted', 'Cloning and reading. Nothing is executed.'));
   try { paintRank(await api('/api/rank', { repo: repoUrl($('rank-repo').value), site: $('rank-site').value.trim() || undefined, tracks: checked('rank-tracks') })); }
-  catch (error) { show($('rank-err'), error.message); }
+  catch (error) {
+    if (error.offline) showApiDown();
+    show($('rank-err'), error.offline ? 'The rank did not run. The API did not answer.' : error.message);
+  }
   $('rank-go').disabled = false;
 });
 
@@ -486,7 +609,10 @@ $('idea-form').addEventListener('submit', async (e) => {
   show($('idea-err'));
   $('idea-go').disabled = true;
   try { paintIdea(await api('/api/idea', { text: $('idea-text').value.trim() })); }
-  catch (error) { show($('idea-err'), error.message); }
+  catch (error) {
+    if (error.offline) showApiDown();
+    show($('idea-err'), error.offline ? 'The idea check did not run. The API did not answer.' : error.message);
+  }
   $('idea-go').disabled = false;
 });
 
@@ -504,7 +630,8 @@ $('org-form').addEventListener('submit', async (e) => {
     };
     await tick();
   } catch (error) {
-    show($('org-err'), error.message);
+    if (error.offline) showApiDown();
+    show($('org-err'), error.offline ? 'Triage did not run. The API did not answer.' : error.message);
     $('org-go').disabled = false;
   }
 });
@@ -541,22 +668,110 @@ async function loadReceiptOne() {
   }
 }
 
-api('/api/meta').then((meta) => {
+function applyMeta(meta) {
   state.overview = meta;
-  if (meta.priceUsd != null) $('price').textContent = String(meta.priceUsd);
-  $('ai-note').innerHTML = meta.ai
-    ? 'NEAR AI model <b>will be called</b> when the quote is recorded'
-    : 'NEAR AI model <b>not called</b> (no key set)';
+  if (meta.priceUsd != null && $('price')) $('price').textContent = String(meta.priceUsd);
+  if ($('ai-note')) {
+    $('ai-note').innerHTML = meta.ai
+      ? 'NEAR AI model <b>will be called</b> when the quote is recorded'
+      : 'NEAR AI model <b>not called</b> (no key set)';
+  }
   fillTracks($('tracks'), meta.hackathon?.tracks || []);
   fillTracks($('rank-tracks'), meta.hackathon?.tracks || []);
-}).catch(() => {});
+}
 
-api('/api/tokens').then((t) => {
-  if (t.priceUsd != null) $('price').textContent = String(t.priceUsd);
-  paintChains(t.tokens || []);
-}).catch(() => paintChains([]));
+function paintDeployLink() {
+  const tx = state.chain?.deployTx || '';
+  if (!tx || !$('deploy-short')) return;
+  $('deploy-short').textContent = shortTx(tx);
+  if ($('deploy-link')) $('deploy-link').href = `https://explorer.testnet.near.org/transactions/${tx}`;
+}
+
+async function loadRecorded() {
+  try {
+    const response = await fetch('/recorded-check.json', { cache: 'no-store' });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data?.recorded !== true || data.score !== 55 || !data.receipt?.explorerTx) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function readReceiptCount() {
+  const count = await rpcView('receipt_count', {});
+  if (typeof count === 'number') $('stat-receipts').textContent = String(count);
+  else if (typeof count === 'string' && /^\d+$/.test(count)) $('stat-receipts').textContent = count;
+}
+
+function hideRecordedScore() {
+  const was = state.showingRecorded;
+  clearRecorded();
+  if (!was) return;
+  $('score-block').hidden = true;
+  $('check-empty').hidden = false;
+  $('rules').replaceChildren();
+  $('extra').replaceChildren();
+  $('receipt-line').textContent = 'Receipt is written when the testnet signer is set.';
+  $('receipt-link').hidden = true;
+  $('verify-body').replaceChildren(el('p', 'muted', 'Reading the contract…'));
+}
+
+async function wakeApi() {
+  const button = $('api-retry');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Waking…';
+  }
+  if ($('api-banner-text')) $('api-banner-text').textContent = `Asking ${apiOrigin()} again. A cold start can take about a minute. If this deploy still sends no CORS header, the browser blocks the response after the process is awake.`;
+  try {
+    const meta = await api('/api/meta', undefined, { timeout: 50000 });
+    state.apiDown = false;
+    if ($('api-banner')) $('api-banner').hidden = true;
+    hideRecordedScore();
+    applyMeta(meta);
+    refreshBoard();
+    refreshStats().then(loadReceiptOne);
+    api('/api/tokens').then((tokens) => {
+      if (tokens.priceUsd != null) $('price').textContent = String(tokens.priceUsd);
+      paintChains(tokens.tokens || []);
+    }).catch(() => paintChains([]));
+  } catch {
+    showApiDown();
+    if ($('api-banner-text')) $('api-banner-text').textContent = `${apiDownMessage()} Still no response.`;
+  }
+}
+
+if ($('api-retry')) $('api-retry').addEventListener('click', wakeApi);
+
+async function boot() {
+  paintDeployLink();
+  state.recorded = await loadRecorded();
+  try {
+    const meta = await api('/api/meta', undefined, { timeout: 8000 });
+    state.apiDown = false;
+    applyMeta(meta);
+    api('/api/tokens').then((tokens) => {
+      if (tokens.priceUsd != null) $('price').textContent = String(tokens.priceUsd);
+      paintChains(tokens.tokens || []);
+    }).catch(() => paintChains([]));
+    refreshBoard();
+    refreshStats().then(loadReceiptOne);
+  } catch (error) {
+    if (!error.offline) return;
+    showApiDown();
+    paintChains([]);
+    if (state.recorded) showRecorded(state.recorded);
+    else if ($('check-empty')) $('check-empty').textContent = 'The API did not answer, and the recorded check file did not load.';
+    try { await readReceiptCount(); } catch { /* leave the placeholder */ }
+    try {
+      const receipt = await rpcView('get_receipt', { id: 1 });
+      if (receipt) paintVerify(receipt, { recorded: true });
+    } catch { /* the recorded card still links the transaction */ }
+  }
+}
 
 window.addEventListener('hashchange', route);
 route();
-refreshBoard();
-refreshStats().then(loadReceiptOne);
+boot();

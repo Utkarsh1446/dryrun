@@ -74,6 +74,11 @@ h1 { font-size: 30px; font-weight: 600; letter-spacing: -.035em; line-height: 1.
 .verified { display: flex; gap: 10px; align-items: center; padding: 12px; border: 1px solid #4fbf7f40; background: #4fbf7f0d; border-radius: 8px; margin-top: 14px; font-size: 12.5px; }
 .verified .tick { width: 22px; height: 22px; border-radius: 6px; background: var(--ok); color: #000; display: grid; place-items: center; font-weight: 700; flex: none; }
 .banner { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: repeating-linear-gradient(-45deg, #151515 0 8px, #121212 8px 16px); border-bottom: 1px solid var(--line); font: 12px var(--mono); color: var(--mu); }
+.banner.stand { flex-wrap: wrap; margin-bottom: 16px; border: 1px solid var(--line); border-radius: 10px; }
+.banner.stand #api-banner-text { flex: 1 1 280px; line-height: 1.45; }
+.banner.stand .btn { flex: none; }
+#recorded-flag #recorded-flag-text { flex: 1; line-height: 1.45; }
+#recorded-flag a { color: var(--tx); text-decoration: underline; white-space: nowrap; }
 .banner .tag { color: #000; background: var(--warn); padding: 2px 7px; border-radius: 4px; font-weight: 600; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--fa); text-align: left; padding: 10px 16px; border-bottom: 1px solid var(--line); }
